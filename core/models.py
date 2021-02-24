@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.core.validators import MinValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator
 
 
 class UserProfile(models.Model):
@@ -42,6 +42,13 @@ class Book(models.Model):
     authors = models.ManyToManyField(Person, related_name='authored_books')
     editors = models.ManyToManyField(Person, blank=True, related_name="edited_books")
     translators = models.ManyToManyField(Person, blank=True, related_name="translated_books")
+
+    # price
+    price = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
+    discount = models.DecimalField(max_digits=2, decimal_places=2, default=0, validators=[
+        MinValueValidator(0),
+        MaxValueValidator(1.00)
+    ])
 
     # id
     isbn = models.CharField(max_length=20, blank=True, null=True)
