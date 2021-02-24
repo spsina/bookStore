@@ -21,15 +21,28 @@ class BasketAdmin(admin.ModelAdmin):
 
 class InvoiceAdmin(admin.ModelAdmin):
 
-    list_display = ['pk', 'amount', 'basket', 'create_datetime', 
+    list_display = ['pk', 'amount', 
+    'book', 'count', 'user_profile'
+    ,'create_datetime', 
     'last_try_datetime', 'status', 'internal_id',
     'payment_token', 'transId', 'refnumber', 'tracing_code',
     'card_number', 'cid', 'payment_date']
     search_fields = ['amount', 'internal_id', 'transId', 
     'refnumber', 'tracing_code', 'card_number', 'cid',]
 
-    filter_fields = ['status', '']
+    list_filter = ['status', ]
 
+    @staticmethod
+    def book(instance):
+        return instance.basket.book
+
+    @staticmethod
+    def count(instance):
+        return instance.basket.count
+    
+    @staticmethod
+    def user_profile(instance):
+        return instance.basket.user_profile
 admin.site.register(UserProfile, UserProfileAdmin)
 admin.site.register(Book, BookAdmin)
 admin.site.register(Basket, BasketAdmin)
