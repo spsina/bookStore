@@ -29,3 +29,24 @@ class UserProfileSerializer(serializers.ModelSerializer):
         instance.refresh_from_db()
 
         return instance
+
+
+class PersonSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Person
+        fields = ['pk', 'first_name', 'last_name']
+
+
+class BookSerializer(serializers.ModelSerializer):
+    authors = PersonSerializer(many=True)
+    editors = PersonSerializer(many=True)
+    translators = PersonSerializer(many=True)
+
+    class Meta:
+        model = Book
+        fields = ['pk', 'title', 'description', 
+        'authors', 'editors', 'translators',
+        'price', 'discount', 'isbn',
+        'image', 'count', 'is_delete', 'sold'
+        ]

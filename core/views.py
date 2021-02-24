@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from rest_framework import generics
-from .serializers import UserProfileSerializer
-from .models import UserProfile
+from .serializers import UserProfileSerializer, BookSerializer
+from .models import UserProfile, Book
 from .permissions import IsLoggedIn
 
 class UserProfileCreateView(generics.CreateAPIView):
@@ -20,7 +20,7 @@ class UserProfileRUDView(generics.RetrieveUpdateAPIView):
 
 class GetOrCreateUserProfile(generics.RetrieveAPIView):
     serializer_class = UserProfileSerializer
-    
+
     def get_object(self):
         try:
             user_profile = UserProfile.objects.get(phone_number=self.kwargs.get('phone_number'))
@@ -34,4 +34,10 @@ class GetOrCreateUserProfile(generics.RetrieveAPIView):
             })
             serializer.is_valid(raise_exception=True)
             return serializer.save()
-    
+
+class BookRetrieveView(generics.RetrieveAPIView):
+
+    serializer_class = BookSerializer
+    queryset = Book.objects.filter(is_delete=False)
+    lookup_field = 'pk'
+    lookup_url_kwarg = 'book_id'
