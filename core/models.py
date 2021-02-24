@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 import math
 import uuid
+from django.utils.translation import gettext as _
+
 
 class UserProfile(models.Model):
     """
@@ -76,11 +78,32 @@ class Book(models.Model):
 
 class Invoice(models.Model):
 
+    CREATED = '0'
+    IN_PAYMENT = '1'
+    PAYED = '2'
+    REJECTED = '3'
+
+    states = (
+        (CREATED, _("Created")),
+        (IN_PAYMENT, _("In Payment")),
+        (PAYED, _("Payed")),
+        (REJECTED, _("Rejected"))
+    )
+
     amount = models.PositiveIntegerField(validators = [MinValueValidator(1000)])
     create_datetime = models.DateTimeField(auto_now_add=True)
-    lsat_try_datetime = models.DateTimeField(auto_now=True)
+    last_try_datetime = models.DateTimeField(auto_now=True)
+
+    status = models.CharField(max_length=1, choices=states, default=CREATED)
 
     internal_id = models.UUIDField(default=uuid.uuid4, unique=True)
+    payment_token = models.CharField(max_length=255, blank=True, null=True)
+    transId = models.CharField(max_length=255, blank=True, null=True)
+    refnumber = models.CharField(max_length=255, blank=True, null=True)
+    tracing_code = models.CharField(max_length=255, blank=True, null=True)
+    card_number = models.CharField(max_length=16, blank=True, null=True)
+    cid = models.CharField(max_length=255, blank=True, null=True)
+    payment_date = models.CharField(max_length=255, blank=True, null=True)
 
     basket = models.ForeignKey("Basket", related_name="invoices", on_delete=models.PROTECT)
 
@@ -89,5 +112,13 @@ class Basket(models.Model):
     book = models.ForeignKey(Book, related_name="orders", on_delete=models.PROTECT)
     count = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
 
+    def create_invoice(self):
+        invoice = Invoice.objects.create(amount=self.subtotal, basket=self)
+        return invoice
+
+    @property
+    def subtotal(self):
+        return self.book.final_price * self.count
+    
     def __str__(self):
         return "%d - %s | %s %d" % (self.pk, self.user_profile, self.book, self.count)
