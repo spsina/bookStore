@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 import math
+import uuid
 
 class UserProfile(models.Model):
     """
@@ -73,6 +74,15 @@ class Book(models.Model):
     def __str__(self):
         return "%d - %s" % (self.pk, self.title)
 
+class Invoice(models.Model):
+
+    amount = models.PositiveIntegerField(validators = [MinValueValidator(1000)])
+    create_datetime = models.DateTimeField(auto_now_add=True)
+    lsat_try_datetime = models.DateTimeField(auto_now=True)
+
+    internal_id = models.UUIDField(default=uuid.uuid4, unique=True)
+
+    basket = models.ForeignKey("Basket", related_name="invoices", on_delete=models.PROTECT)
 
 class Basket(models.Model):
     user_profile = models.ForeignKey(UserProfile, related_name="orders", on_delete=models.PROTECT)
