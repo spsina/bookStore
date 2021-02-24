@@ -10,6 +10,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
         'first_name', 'last_name', 'phone_number',
         'province', 'city', 'address', 'postal_code']
 
+        extra_kwargs = {'user': {'read_only': True}}
 
     def create(self, validated_data):
         user = User.objects.create_user(username=validated_data.get('phone_number'))
@@ -25,6 +26,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         
         # update and fetch updated data
         user_profile.update(**validated_data)
-        user_profile.refresh_from_db()
+        instance.refresh_from_db()
 
-        return user_profile
+        return instance
