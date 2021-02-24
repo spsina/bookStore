@@ -41,3 +41,9 @@ class BookRetrieveView(generics.RetrieveAPIView):
     queryset = Book.objects.filter(is_delete=False)
     lookup_field = 'pk'
     lookup_url_kwarg = 'book_id'
+
+
+class BookListView(generics.ListAPIView):
+    
+    serializer_class = BookSerializer
+    queryset = Book.objects.filter(is_delete=False)
