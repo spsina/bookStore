@@ -8,7 +8,7 @@ class UserProfileCreateView(generics.CreateAPIView):
     serializer_class = UserProfileSerializer
 
 
-class UserProfileRUDView(generics.RetrieveUpdateDestroyAPIView):
+class UserProfileRUDView(generics.RetrieveUpdateAPIView):
 
     serializer_class = UserProfileSerializer
     queryset = UserProfile.objects.all()
