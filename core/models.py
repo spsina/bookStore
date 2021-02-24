@@ -1,7 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
-
+import math
 
 class UserProfile(models.Model):
     """
@@ -66,6 +66,10 @@ class Book(models.Model):
     def sold(self):
         return 0
 
+    @property
+    def final_price(self):
+        return math.ceil(self.price * (1 - self.discount))
+    
     def __str__(self):
         return "%d - %s" % (self.pk, self.title)
 

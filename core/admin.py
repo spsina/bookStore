@@ -8,7 +8,7 @@ class UserProfileAdmin(admin.ModelAdmin):
 
 
 class BookAdmin(admin.ModelAdmin):
-    list_display = ['pk', 'title', 'description', 'price', 'discount', 'count', 'sold']
+    list_display = ['pk', 'title', 'description', 'price', 'discount', 'count', 'sold', 'final_price']
 
 
 class PersonAdmin(admin.ModelAdmin):
