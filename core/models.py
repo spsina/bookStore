@@ -4,7 +4,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 import math
 import uuid
 from django.utils.translation import gettext as _
-
+from django.db import transaction
 
 class UserProfile(models.Model):
     """
@@ -36,7 +36,19 @@ class Person(models.Model):
         return "%d - %s %s" % (self.pk, self.first_name, self.last_name)
 
 
+def get_price_fields():
+    # price
+    price = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
+    discount = models.DecimalField(max_digits=2, decimal_places=2, default=0, validators=[
+        MinValueValidator(0),
+        MaxValueValidator(1.00)
+    ])
+
+    return price, discount
+
+
 class Book(models.Model):
+
     # display info
     title = models.CharField(max_length=1024)
     description = models.TextField(blank=True, null=True)
@@ -47,11 +59,7 @@ class Book(models.Model):
     translators = models.ManyToManyField(Person, blank=True, related_name="translated_books")
 
     # price
-    price = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
-    discount = models.DecimalField(max_digits=2, decimal_places=2, default=0, validators=[
-        MinValueValidator(0),
-        MaxValueValidator(1.00)
-    ])
+    price, discount = get_price_fields()
 
     # id
     isbn = models.CharField(max_length=20, blank=True, null=True)
@@ -76,8 +84,10 @@ class Book(models.Model):
     def __str__(self):
         return "%d - %s" % (self.pk, self.title)
 
+
 class Invoice(models.Model):
 
+    # payment gate states
     CREATED = '0'
     IN_PAYMENT = '1'
     PAYED = '2'
@@ -90,13 +100,15 @@ class Invoice(models.Model):
         (REJECTED, _("Rejected"))
     )
 
+    internal_id = models.UUIDField(default=uuid.uuid4, unique=True)
+
     amount = models.PositiveIntegerField(validators = [MinValueValidator(1000)])
     create_datetime = models.DateTimeField(auto_now_add=True)
     last_try_datetime = models.DateTimeField(auto_now=True)
 
     status = models.CharField(max_length=1, choices=states, default=CREATED)
 
-    internal_id = models.UUIDField(default=uuid.uuid4, unique=True)
+    # vandar payment fields
     payment_token = models.CharField(max_length=255, blank=True, null=True)
     transId = models.CharField(max_length=255, blank=True, null=True)
     refnumber = models.CharField(max_length=255, blank=True, null=True)
@@ -105,20 +117,54 @@ class Invoice(models.Model):
     cid = models.CharField(max_length=255, blank=True, null=True)
     payment_date = models.CharField(max_length=255, blank=True, null=True)
 
-    basket = models.ForeignKey("Basket", related_name="invoices", on_delete=models.PROTECT)
 
-class Basket(models.Model):
-    user_profile = models.ForeignKey(UserProfile, related_name="orders", on_delete=models.PROTECT)
-    book = models.ForeignKey(Book, related_name="orders", on_delete=models.PROTECT)
+class Item(models.Model):
+    """
+    a pair of book and count
+    """
+
+    book = models.ForeignKey(Book, on_delete=models.PROTECT)
     count = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1)])
 
-    def create_invoice(self):
-        invoice = Invoice.objects.create(amount=self.subtotal, basket=self)
-        return invoice
+    # price snapshot
+    price, discount = get_price_fields()
+
+    basket = models.ForeignKey("Basket", related_name="items", on_delete=models.PROTECT)
 
     @property
     def subtotal(self):
-        return self.book.final_price * self.count
+        return math.ceil(self.price * (1 - self.discount))
+
+    class Meta:
+        unique_together = ['book', 'basket']
+
+
+class Basket(models.Model):
+    """
+        A  set of items that a user profile made
+        invoice object indicates the payment status of the basket
+
+        status indicates the piple line stage this basket(order) is in
+    """
+    
+    PENDING = '0'
+    DONE = '1'
+
+    states = (
+        (PENDING, _("Pending")),
+        (DONE, _('Done'))
+    )
+
+    user_profile = models.ForeignKey(UserProfile, related_name="baskets", on_delete=models.PROTECT)
+    create_datetime = models.DateTimeField(auto_now_add=True)
+
+    invoice = models.OneToOneField(Invoice, on_delete=models.PROTECT, blank=True, null=True)
+
+    status = models.CharField(max_length=1, choices=states, default=PENDING)
+
+    @property
+    def subtotal(self):
+        return sum([item.subtotal for item in self.items.all()])
     
     def __str__(self):
-        return "%d - %s | %s %d" % (self.pk, self.user_profile, self.book, self.count)
+        return "%d - %s" % (self.pk, self.user_profile)
