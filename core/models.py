@@ -6,6 +6,7 @@ import uuid
 from django.utils.translation import gettext as _
 from django.db import transaction
 
+
 class UserProfile(models.Model):
     """
         User Profile
@@ -48,7 +49,6 @@ def get_price_fields():
 
 
 class Book(models.Model):
-
     # display info
     title = models.CharField(max_length=1024)
     description = models.TextField(blank=True, null=True)
@@ -80,13 +80,12 @@ class Book(models.Model):
     @property
     def final_price(self):
         return math.ceil(self.price * (1 - self.discount))
-    
+
     def __str__(self):
         return "%d - %s" % (self.pk, self.title)
 
 
 class Invoice(models.Model):
-
     # payment gate states
     CREATED = '0'
     IN_PAYMENT = '1'
@@ -102,7 +101,7 @@ class Invoice(models.Model):
 
     internal_id = models.UUIDField(default=uuid.uuid4, unique=True)
 
-    amount = models.PositiveIntegerField(validators = [MinValueValidator(1000)])
+    amount = models.PositiveIntegerField(validators=[MinValueValidator(1000)])
     create_datetime = models.DateTimeField(auto_now_add=True)
     last_try_datetime = models.DateTimeField(auto_now=True)
 
@@ -146,7 +145,7 @@ class Basket(models.Model):
 
         status indicates the piple line stage this basket(order) is in
     """
-    
+
     PENDING = '0'
     DONE = '1'
 
@@ -158,13 +157,13 @@ class Basket(models.Model):
     user_profile = models.ForeignKey(UserProfile, related_name="baskets", on_delete=models.PROTECT)
     create_datetime = models.DateTimeField(auto_now_add=True)
 
-    invoice = models.OneToOneField(Invoice, on_delete=models.PROTECT, blank=True, null=True)
+    invoice = models.OneToOneField(Invoice, on_delete=models.PROTECT)
 
     status = models.CharField(max_length=1, choices=states, default=PENDING)
 
     @property
     def subtotal(self):
         return sum([item.subtotal for item in self.items.all()])
-    
+
     def __str__(self):
         return "%d - %s" % (self.pk, self.user_profile)
