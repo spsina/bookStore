@@ -4,7 +4,6 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 import math
 import uuid
 from django.utils.translation import gettext as _
-from django.db import transaction
 
 
 class UserProfile(models.Model):
@@ -33,6 +32,9 @@ class Person(models.Model):
     first_name = models.CharField(max_length=120)
     last_name = models.CharField(max_length=120, blank=True, null=True)
 
+    nick_name = models.CharField(max_length=120, blank=True, null=True)
+    description = models.TextField(blank=True, null=True)
+
     def __str__(self):
         return "%d - %s %s" % (self.pk, self.first_name, self.last_name)
 
@@ -48,10 +50,17 @@ def get_price_fields():
     return price, discount
 
 
+class Publisher(models.Model):
+    name = models.CharField(max_length=120)
+
+
 class Book(models.Model):
     # display info
     title = models.CharField(max_length=1024)
     description = models.TextField(blank=True, null=True)
+    edition = models.CharField(max_length=120, blank=True, null=True)
+    publisher = models.ForeignKey(Publisher, related_name="books", on_delete=models.SET_NULL,
+                                  blank=True, null=True)
 
     # people
     authors = models.ManyToManyField(Person, related_name='authored_books')

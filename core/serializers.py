@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import UserProfile, Book, Basket, Person, Item, Invoice
+from .models import UserProfile, Book, Basket, Person, Item, Invoice, Publisher
 from django.contrib.auth.models import User
 from django.utils.translation import gettext as _
 
@@ -35,17 +35,25 @@ class UserProfileSerializer(serializers.ModelSerializer):
 class PersonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Person
-        fields = ['pk', 'first_name', 'last_name']
+        fields = ['pk', 'first_name', 'last_name', 'nick_name', 'description']
+
+
+class PublisherSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Publisher
+        fields = ['pk', 'name']
 
 
 class BookSerializer(serializers.ModelSerializer):
-    authors = PersonSerializer(many=True)
-    editors = PersonSerializer(many=True)
-    translators = PersonSerializer(many=True)
+    authors = PersonSerializer(many=True, read_only=True)
+    editors = PersonSerializer(many=True, read_only=True)
+    translators = PersonSerializer(many=True, read_only=True)
+    publisher = PublisherSerializer(read_only=True)
 
     class Meta:
         model = Book
         fields = ['pk', 'title', 'description',
+                  'publisher', 'edition',
                   'authors', 'editors', 'translators',
                   'price', 'discount', 'isbn', 'final_price',
                   'image', 'count', 'is_delete', 'sold'
