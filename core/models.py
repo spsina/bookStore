@@ -7,6 +7,8 @@ import uuid
 from django.db.models import Sum
 from django.utils.translation import gettext as _
 
+from django.utils import timezone
+
 
 class UserProfile(models.Model):
     """
@@ -127,7 +129,7 @@ class Invoice(models.Model):
 
     amount = models.PositiveIntegerField(validators=[MinValueValidator(1000)])
     create_datetime = models.DateTimeField(auto_now_add=True)
-    last_try_datetime = models.DateTimeField(auto_now=True)
+    last_try_datetime = models.DateTimeField(default=timezone.now)
 
     status = models.CharField(max_length=1, choices=states, default=CREATED)
 
@@ -188,6 +190,24 @@ class Basket(models.Model):
     @property
     def subtotal(self):
         return sum([item.subtotal for item in self.items.all()])
+
+    @property
+    def is_expired(self):
+        """
+        valid basket:
+        a basket that its invoice's last try datetime is not expired
+        expired lsat try datetime: now - last_try_datetime > 15 min
+        """
+
+        return (timezone.now() - self.invoice.last_try_datetime) > timezone.timedelta(minutes=15)
+
+    @property
+    def is_valid(self):
+        """
+        A valid basket is not expired and not payed
+        """
+
+        return not self.is_expired and self.invoice.status == Invoice.CREATED
 
     def __str__(self):
         return "%d - %s" % (self.pk, self.user_profile)

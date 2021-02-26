@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import UserProfileCreateView, UserProfileRUDView, GetOrCreateUserProfile, BookRetrieveView, BookListView, \
-    BasketCreateView
+    BasketCreateView, MakePaymentView
 
 urlpatterns = [
     # user profile
@@ -15,4 +15,7 @@ urlpatterns = [
 
     # basket
     path('basket/create/', BasketCreateView.as_view()),
+
+    # payment
+    path('payment/make/<internal_id>/', MakePaymentView.as_view()),
 ]

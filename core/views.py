@@ -1,8 +1,12 @@
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from rest_framework import generics
+from rest_framework.response import Response
+
 from .serializers import UserProfileSerializer, BookSerializer, BasketCreate
-from .models import UserProfile, Book
+from .models import UserProfile, Book, Invoice
 from .permissions import IsLoggedIn
+
+from django.utils import timezone
 
 
 class UserProfileCreateView(generics.CreateAPIView):
@@ -49,9 +53,20 @@ class BookListView(generics.ListAPIView):
 
 
 class BasketCreateView(generics.CreateAPIView):
-
     permission_classes = (IsLoggedIn,)
     serializer_class = BasketCreate
 
     def perform_create(self, serializer):
         serializer.save(user_profile=self.request.user.user_profile)
+
+
+class MakePaymentView(generics.GenericAPIView):
+
+    def get(self, request, *args, **kwargs):
+        invoice = get_object_or_404(Invoice, internal_id=kwargs.get('internal_id'))
+
+        redirect_to = invoice.basket.is_expired
+
+        return Response({
+            'redirect_to': redirect_to
+        })
