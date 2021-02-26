@@ -1,3 +1,5 @@
+import datetime
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
@@ -9,6 +11,7 @@ from django.utils.translation import gettext as _
 
 from django.utils import timezone
 
+PAYMENT_BUFFER_TIME = 15
 
 class UserProfile(models.Model):
     """
@@ -89,15 +92,35 @@ class Book(models.Model):
     # instead of deleting book objects, set this flag to True
     is_delete = models.BooleanField(default=False)
 
+    @staticmethod
+    def clear(aggregate_dict):
+        """
+        clear aggregate dictionary from null values
+        """
+        for key in aggregate_dict.keys():
+            if not aggregate_dict.get(key):
+                aggregate_dict[key] = 0
+
     @property
     def sold(self):
-        total_sold = Item.objects.filter(book=self).aggregate(total_sold=Sum('count'))
+        """
+        Sold: Number of items that are fully paid +
+        number of items that are in payment or in created status
+        (with a time limit of 15 minutes)
+        """
+        items = Item.objects.filter(book=self)
 
-        # total_sold.get('total_sold') might return null, in case of null or 0, 0 will be returned
-        if not total_sold.get('total_sold'):
-            return 0
+        _total_sold = items.filter(basket__invoice__status=Invoice.PAYED).aggregate(total_sold=Sum('count'))
+        _n_min_ago = timezone.now() - datetime.timedelta(minutes=PAYMENT_BUFFER_TIME)
+        _total_in_payment = items.filter(basket__invoice__status__in=[
+            Invoice.CREATED,
+            Invoice.IN_PAYMENT
+        ], basket__invoice__last_try_datetime__gte=_n_min_ago).aggregate(total_sold=Sum('count'))
 
-        return total_sold.get('total_sold')
+        self.clear(_total_sold)
+        self.clear(_total_in_payment)
+
+        return _total_sold.get('total_sold') + _total_in_payment.get('total_sold')
 
     @property
     def remaining(self):
@@ -199,7 +222,7 @@ class Basket(models.Model):
         expired lsat try datetime: now - last_try_datetime > 15 min
         """
 
-        return (timezone.now() - self.invoice.last_try_datetime) > timezone.timedelta(minutes=15)
+        return (timezone.now() - self.invoice.last_try_datetime) > timezone.timedelta(minutes=PAYMENT_BUFFER_TIME)
 
     @property
     def is_valid(self):
