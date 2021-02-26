@@ -193,5 +193,3 @@ class TestBasket(APITestCase):
         # another attempt to pay the same invoice must cause an error
         payment_response_second_attempt = self.client.get('/api/v1/payment/make/%s/' % invoice_internal_id)
         self.assertEqual(payment_response_second_attempt.status_code, 400)
-
-        print(json.loads(payment_response_second_attempt.content))

@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404
 from rest_framework import generics
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .serializers import UserProfileSerializer, BookSerializer, BasketCreate
 from .models import UserProfile, Book, Invoice
@@ -61,7 +62,7 @@ class BasketCreateView(generics.CreateAPIView):
         serializer.save(user_profile=self.request.user.user_profile)
 
 
-class MakePaymentView(generics.GenericAPIView):
+class MakePaymentView(APIView):
 
     def get(self, request, *args, **kwargs):
         invoice = get_object_or_404(Invoice, internal_id=kwargs.get('internal_id'))
