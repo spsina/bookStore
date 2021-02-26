@@ -83,6 +83,60 @@ class TestBasket(APITestCase):
             ]
         }
 
+    def test_sold_remaining(self):
+        # create a basket
+        response = self.client.post('/api/v1/basket/create/', data=self.basket_create_test_data(), format='json')
+
+        api_response = json.loads(response.content)
+        basket = Basket.objects.get(pk=api_response.get('pk'))
+
+        # assert effect on book count remaining
+        self.assertEqual(self.b1.remaining, 2)
+        self.assertEqual(self.b2.remaining, 0)
+
+        # change the invoice last try date time to 20 min ago
+        # this means that this basket is invalid, and it's items should not be locked anymore
+        _20_min_ago = timezone.now() - datetime.timedelta(minutes=20)
+        basket.invoice.last_try_datetime = _20_min_ago
+        basket.invoice.save()
+
+        # assert effect on book count remaining
+        # all books remaining is back to init state
+        self.assertEqual(self.b1.remaining, 3)
+        self.assertEqual(self.b2.remaining, 2)
+
+        # undo invoice last try time
+        basket.invoice.last_try_datetime = timezone.now()
+        basket.invoice.save()
+
+        # basket is valid again
+        self.assertEqual(self.b1.remaining, 2)
+        self.assertEqual(self.b2.remaining, 0)
+
+        # change invoice status to PAYED
+        basket.invoice.status = Invoice.PAYED
+        basket.invoice.save()
+
+        # basket is still valid
+        self.assertEqual(self.b1.remaining, 2)
+        self.assertEqual(self.b2.remaining, 0)
+
+        # change invoice status to IN PAYMENT
+        basket.invoice.status = Invoice.IN_PAYMENT
+        basket.invoice.save()
+
+        # basket is still valid
+        self.assertEqual(self.b1.remaining, 2)
+        self.assertEqual(self.b2.remaining, 0)
+
+        # change invoice status to REJECTED
+        basket.invoice.status = Invoice.REJECTED
+        basket.invoice.save()
+
+        # basket is NOT valid any more, so remaining is back to init
+        self.assertEqual(self.b1.remaining, 3)
+        self.assertEqual(self.b2.remaining, 2)
+
     def test_basket_create(self):
         response = self.client.post('/api/v1/basket/create/', data=self.basket_create_test_data(), format='json')
 
