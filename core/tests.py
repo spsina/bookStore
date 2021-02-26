@@ -39,7 +39,7 @@ class TestBasket(APITestCase):
         self.b2 = b2
         self.client.login(username="spsina", password="thecode")
 
-    def test_basket_book_underflow(self):
+    def test_basket_book_underflow_1(self):
         # create basket
         response = self.client.post('/api/v1/basket/create/', data={
             'items': [
@@ -65,6 +65,114 @@ class TestBasket(APITestCase):
 
         self.assertEqual(response.status_code, 400)
         self.assertEqual(true_response, api_response)
+
+    def test_basket_book_underflow_2(self):
+        # create basket - this should pass
+        response = self.client.post('/api/v1/basket/create/', data={
+            'items': [
+                {
+                    'book': self.b1.pk,
+                    'count': 1
+                },
+                {
+                    'book': self.b2.pk,
+                    'count': 2
+                },
+            ]
+        }, format='json')
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(self.b1.remaining, 2)
+        self.assertEqual(self.b2.remaining, 0)
+
+        # this should also pass
+        response_2 = self.client.post('/api/v1/basket/create/', data={
+            'items': [
+                {
+                    'book': self.b1.pk,
+                    'count': 1
+                },
+            ]
+        }, format='json')
+
+        self.assertEqual(response_2.status_code, 201)
+        self.assertEqual(self.b1.remaining, 1)
+        self.assertEqual(self.b2.remaining, 0)
+
+        # this should fail
+        response_3 = self.client.post('/api/v1/basket/create/', data={
+            'items': [
+                {
+                    'book': self.b1.pk,
+                    'count': 2
+                },
+                {
+                    'book': self.b2.pk,
+                    'count': 2
+                },
+            ]
+        }, format='json')
+
+        true_response = {
+            'items': [
+                _("Book %d - %s underflow") % (self.b1.pk, self.b1.title),
+                _("Book %d - %s underflow") % (self.b2.pk, self.b2.title)
+            ]
+        }
+        api_response_3 = json.loads(response_3.content)
+
+        self.assertEqual(response_3.status_code, 400)
+        self.assertEqual(api_response_3, true_response)
+
+        # remaining should not change
+        self.assertEqual(self.b1.remaining, 1)
+        self.assertEqual(self.b2.remaining, 0)
+
+        # this should fail too
+        response_4 = self.client.post('/api/v1/basket/create/', data={
+            'items': [
+                {
+                    'book': self.b1.pk,
+                    'count': 2
+                },
+            ]
+        }, format='json')
+
+        true_response_4 = {
+            'items': [
+                _("Book %d - %s underflow") % (self.b1.pk, self.b1.title),
+            ]
+        }
+        api_response_4 = json.loads(response_4.content)
+
+        self.assertEqual(response_4.status_code, 400)
+        self.assertEqual(api_response_4, true_response_4)
+
+        # remaining should not change
+        self.assertEqual(self.b1.remaining, 1)
+        self.assertEqual(self.b2.remaining, 0)
+
+        # let's invalidate response_2
+        api_response_2 = json.loads(response_2.content)
+        basket_2 = Basket.objects.get(pk=api_response_2.get('pk'))
+        basket_2.invoice.status = Invoice.REJECTED
+        basket_2.invoice.save()
+
+        # now this should pass
+        response_5 = self.client.post('/api/v1/basket/create/', data={
+            'items': [
+                {
+                    'book': self.b1.pk,
+                    'count': 2
+                },
+            ]
+        }, format='json')
+
+        self.assertEqual(response_5.status_code, 201)
+
+        # remaining should be 0
+        self.assertEqual(self.b1.remaining, 0)
+        self.assertEqual(self.b2.remaining, 0)
 
     def basket_create_test_data(self):
         """
@@ -154,10 +262,10 @@ class TestBasket(APITestCase):
         self.assertEqual(self.b2.remaining, 0)
 
         # asset invoice times
-        self.assertEqual(basket.invoice.create_datetime.replace(microsecond=0),
-                         timezone.now().replace(microsecond=0))
-        self.assertEqual(basket.invoice.last_try_datetime.replace(microsecond=0),
-                         timezone.now().replace(microsecond=0))
+        self.assertEqual(basket.invoice.create_datetime.replace(microsecond=0, second=0),
+                         timezone.now().replace(microsecond=0, second=0))
+        self.assertEqual(basket.invoice.last_try_datetime.replace(microsecond=0, second=0),
+                         timezone.now().replace(microsecond=0, second=0))
 
     def test_basket_expiration(self):
         # create the test basket
