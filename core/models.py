@@ -156,7 +156,7 @@ class Item(models.Model):
 
     @property
     def subtotal(self):
-        return math.ceil(self.price * (1 - self.discount))
+        return math.ceil(self.price * (1 - self.discount)) * self.count
 
     class Meta:
         unique_together = ['book', 'basket']

@@ -72,13 +72,20 @@ class ItemSerializer(serializers.ModelSerializer):
         return item
 
 
+class InvoiceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invoice
+        fields = ['pk', 'amount', 'internal_id']
+
+
 class BasketCreate(serializers.ModelSerializer):
     items = ItemSerializer(many=True)
+    invoice = InvoiceSerializer(read_only=True)
 
     class Meta:
         model = Basket
-        fields = ['pk', 'items', 'invoice']
-        extra_kwargs = {'invoice': {'ready_only': True}}
+        fields = ['pk', 'items', 'invoice', 'subtotal']
+        extra_kwargs = {'invoice': {'read_only': True}}
 
     @staticmethod
     def validate_items(items):
