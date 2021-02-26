@@ -3,6 +3,7 @@ astroid==2.5
 certifi==2020.12.5
 chardet==4.0.0
 Django==3.1.7
+django-cors-headers==3.7.0
 djangorestframework==3.12.2
 idna==2.10
 isort==5.7.0
