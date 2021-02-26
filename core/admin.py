@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import UserProfile, Book, Basket, Person, Invoice, Item
+from .models import UserProfile, Book, Basket, Person, Invoice, Item, Publisher
 from django.utils.html import format_html
 
 
@@ -94,9 +94,14 @@ class ItemAdmin(admin.ModelAdmin):
     list_display = ['pk', 'book', 'count', 'price', 'discount', 'subtotal']
 
 
+class PublisherAdmin(admin.ModelAdmin):
+    list_display = ['pk', 'name',]
+
+
 admin.site.register(UserProfile, UserProfileAdmin)
 admin.site.register(Book, BookAdmin)
 admin.site.register(Basket, BasketAdmin)
 admin.site.register(Person, PersonAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(Item, ItemAdmin)
+admin.site.register(Publisher, PublisherAdmin)

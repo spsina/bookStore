@@ -3,6 +3,8 @@ from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator
 import math
 import uuid
+
+from django.db.models import Sum
 from django.utils.translation import gettext as _
 
 
@@ -42,7 +44,7 @@ class Person(models.Model):
 def get_price_fields():
     # price
     price = models.PositiveIntegerField(default=0, validators=[MinValueValidator(0)])
-    discount = models.DecimalField(max_digits=2, decimal_places=2, default=0, validators=[
+    discount = models.DecimalField(max_digits=2, decimal_places=2, default=0.0, validators=[
         MinValueValidator(0),
         MaxValueValidator(1.00)
     ])
@@ -52,6 +54,9 @@ def get_price_fields():
 
 class Publisher(models.Model):
     name = models.CharField(max_length=120)
+
+    def __str__(self):
+        return "%d - %s" % (self.pk, self.name)
 
 
 class Book(models.Model):
@@ -84,7 +89,17 @@ class Book(models.Model):
 
     @property
     def sold(self):
-        return 0
+        total_sold = Item.objects.filter(book=self).aggregate(total_sold=Sum('count'))
+
+        # total_sold.get('total_sold') might return null, in case of null or 0, 0 will be returned
+        if not total_sold.get('total_sold'):
+            return 0
+
+        return total_sold.get('total_sold')
+
+    @property
+    def remaining(self):
+        return self.count - self.sold
 
     @property
     def final_price(self):

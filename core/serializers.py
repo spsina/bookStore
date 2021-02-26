@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 from .models import UserProfile, Book, Basket, Person, Item, Invoice, Publisher
 from django.contrib.auth.models import User
@@ -73,39 +74,59 @@ class ItemSerializer(serializers.ModelSerializer):
 
 class BasketCreate(serializers.ModelSerializer):
     items = ItemSerializer(many=True)
-    payment_link = serializers.SerializerMethodField()
 
     class Meta:
         model = Basket
-        fields = ['pk', 'items', 'payment_link']
+        fields = ['pk', 'items', 'invoice']
+        extra_kwargs = {'invoice': {'ready_only': True}}
 
     @staticmethod
     def validate_items(items):
         subtotal = 0
+        errors = []
+
         for item in items:
             subtotal += item.get('book').final_price * item.get('count')
 
-        if subtotal >= 1000:
-            return items
+            # check for remaining
+            if item.get('book').remaining < item.get('count'):
+                book = item.get('book')
+                errors.append(_("Book %d - %s underflow" % (book.pk, book.title)))
 
-        raise serializers.ValidationError(_("Min order amount is 1000 toman"))
+        # check for min order amount
+        if subtotal < 1000:
+            errors.append(_("Min order amount is 1000 Toman"))
+
+        # raise any errors
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return items
 
     def create(self, validated_data):
         # create basket
 
-        invoice = Invoice.objects.create(amount=1000)
-        basket = Basket.objects.create(user_profile=validated_data.get('user_profile'), invoice=invoice)
+        with transaction.atomic():
+            invoice = Invoice.objects.create(amount=1000)
+            basket = Basket.objects.create(user_profile=validated_data.get('user_profile'), invoice=invoice)
 
-        # create items
-        for item in validated_data.get('items'):
-            item_serializer = ItemSerializer(data={'book': item.get('book').pk, 'count': item.get('count')})
-            item_serializer.is_valid(raise_exception=True)
-            item_serializer.save(basket=basket)
+            # create items
+            for item in validated_data.get('items'):
+
+                # lock the book
+                _book = item.get('book')
+                _count = item.get('count')
+                book = Book.objects.select_for_update().get(pk=_book.pk)
+
+                # check for enough remaining
+                if book.remaining >= _count:
+                    item_serializer = ItemSerializer(data={'book': _book.pk, 'count': _count})
+                    item_serializer.is_valid(raise_exception=True)
+                    item_serializer.save(basket=basket)
+                else:
+                    raise serializers.ValidationError(_("Book %d - %s underflow" % (book.pk, book.title)))
 
         invoice.amount = basket.subtotal
         invoice.save()
 
         return basket
-
-    def get_payment_link(self, instance):
-        return ""
