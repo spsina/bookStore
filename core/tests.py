@@ -173,14 +173,25 @@ class TestBasket(APITestCase):
 
         self.assertEqual(basket.is_valid, True)
 
-    def test_basket_payment(self):
+    def test_valid_basket_payment(self):
         # create the test basket
         response = self.client.post('/api/v1/basket/create/', data=self.basket_create_test_data(), format='json')
         api_response = json.loads(response.content)
 
         # get invoice internal id
         invoice_internal_id = api_response.get('invoice').get('internal_id')
+        invoice = Invoice.objects.get(internal_id=invoice_internal_id)
 
         payment_response = self.client.get('/api/v1/payment/make/%s/' % invoice_internal_id)
 
-        print(payment_response.content)
+        self.assertEqual(payment_response.status_code, 200)
+
+        # invoice status should be in payment
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, Invoice.IN_PAYMENT)
+
+        # another attempt to pay the same invoice must cause an error
+        payment_response_second_attempt = self.client.get('/api/v1/payment/make/%s/' % invoice_internal_id)
+        self.assertEqual(payment_response_second_attempt.status_code, 400)
+
+        print(json.loads(payment_response_second_attempt.content))

@@ -5,8 +5,9 @@ from rest_framework.response import Response
 from .serializers import UserProfileSerializer, BookSerializer, BasketCreate
 from .models import UserProfile, Book, Invoice
 from .permissions import IsLoggedIn
+from django.utils.translation import gettext as _
 
-from django.utils import timezone
+from .vandar import vandar_prepare_for_payment
 
 
 class UserProfileCreateView(generics.CreateAPIView):
@@ -65,8 +66,17 @@ class MakePaymentView(generics.GenericAPIView):
     def get(self, request, *args, **kwargs):
         invoice = get_object_or_404(Invoice, internal_id=kwargs.get('internal_id'))
 
-        redirect_to = invoice.basket.is_expired
+        # reject invalid basket
+        if not invoice.basket.is_valid:
+            return Response({'details': _("Invalid Basket")}, status=400)
 
+        result = vandar_prepare_for_payment(invoice, request)
+
+        # vandar failed to create redirect url
+        if result.get('status') != 200:
+            return Response(result)
+
+        # redirect url fetch from vandar
         return Response({
-            'redirect_to': redirect_to
+            'redirect_to': result.get('redirect_to')
         })

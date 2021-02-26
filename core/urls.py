@@ -10,12 +10,13 @@ urlpatterns = [
 
 
     # book
-    path('book/<int:book_id>/', BookRetrieveView.as_view()),
-    path('book/list/', BookListView.as_view()),
+    path('book/<int:book_id>/', BookRetrieveView.as_view(), name="book_detail"),
+    path('book/list/', BookListView.as_view(), name="books_list"),
 
     # basket
-    path('basket/create/', BasketCreateView.as_view()),
+    path('basket/create/', BasketCreateView.as_view(), name="basket_create"),
 
     # payment
-    path('payment/make/<internal_id>/', MakePaymentView.as_view()),
+    path('payment/make/<internal_id>/', MakePaymentView.as_view(), name="payment_make"),
+    path('payment/verify/<internal_id>/', MakePaymentView.as_view(), name="payment_verify"),
 ]
