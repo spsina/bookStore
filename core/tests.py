@@ -101,4 +101,6 @@ class TestBasket(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertGreaterEqual(api_response.items(), true_response.items())
         self.assertEqual(api_response.get('invoice').get('amount'), total_amount)
-        
+
+        self.assertEqual(self.b1.remaining, 2)
+        self.assertEqual(self.b2.remaining, 0)
