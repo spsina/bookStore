@@ -68,7 +68,7 @@ class BasketAdmin(admin.ModelAdmin):
 
 class InvoiceAdmin(admin.ModelAdmin):
     list_display = ['pk', 'amount',
-                    'book', 'count', 'user_profile', 'create_datetime',
+                    'user_profile', 'create_datetime',
                     'last_try_datetime', 'status', 'internal_id',
                     'payment_token', 'transId', 'refnumber', 'tracing_code',
                     'card_number', 'cid', 'payment_date']
@@ -76,14 +76,6 @@ class InvoiceAdmin(admin.ModelAdmin):
                      'refnumber', 'tracing_code', 'card_number', 'cid', ]
 
     list_filter = ['status', ]
-
-    @staticmethod
-    def book(instance):
-        return instance.basket.book
-
-    @staticmethod
-    def count(instance):
-        return instance.basket.count
 
     @staticmethod
     def user_profile(instance):
