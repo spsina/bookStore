@@ -2,7 +2,7 @@ import datetime
 
 from django.db import models
 from django.contrib.auth.models import User
-from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
 import math
 import uuid
 
@@ -13,6 +13,7 @@ from django.utils import timezone
 
 PAYMENT_BUFFER_TIME = 15
 
+
 class UserProfile(models.Model):
     """
         User Profile
@@ -21,9 +22,21 @@ class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="user_profile")
 
     # profile
-    phone_number = models.CharField(max_length=20, unique=True)
+    phone_number = models.CharField(max_length=12, validators=[
+        RegexValidator(
+            regex=r"^(\+98|0)?9\d{9}$",
+            message=_("Enter a valid phone number"),
+            code='invalid_phone_number'
+        ),
+    ], unique=True)
+
     first_name = models.CharField(max_length=120, blank=True, null=True)
     last_name = models.CharField(max_length=120, blank=True, null=True)
+
+    # contact
+    delivery_phone_number = models.CharField(max_length=120, blank=True, null=True)
+    land_line = models.CharField(max_length=120, blank=True, null=True)
+    email = models.EmailField(blank=True, null=True)
 
     # address
     province = models.CharField(max_length=120, blank=True, null=True)
@@ -209,6 +222,9 @@ class Basket(models.Model):
     invoice = models.OneToOneField(Invoice, on_delete=models.PROTECT)
 
     status = models.CharField(max_length=1, choices=states, default=PENDING)
+
+    description = models.TextField(blank=True, null=True)
+    is_gift = models.BooleanField(default=False)
 
     @property
     def subtotal(self):

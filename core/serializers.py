@@ -84,7 +84,7 @@ class BasketCreate(serializers.ModelSerializer):
 
     class Meta:
         model = Basket
-        fields = ['pk', 'items', 'invoice', 'subtotal']
+        fields = ['pk', 'items', 'invoice', 'subtotal', 'is_gift', 'description']
         extra_kwargs = {'invoice': {'read_only': True}}
 
     @staticmethod

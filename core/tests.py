@@ -4,6 +4,7 @@ from django.utils.translation import gettext as _
 
 from rest_framework.test import APITestCase
 from .models import *
+from django.urls import reverse
 
 
 class TestBasket(APITestCase):
@@ -39,9 +40,11 @@ class TestBasket(APITestCase):
         self.b2 = b2
         self.client.login(username="spsina", password="thecode")
 
+        self.basket_create_endpoint = reverse('basket_create')
+
     def test_basket_book_underflow_1(self):
         # create basket
-        response = self.client.post('/api/v1/basket/create/', data={
+        response = self.client.post(self.basket_create_endpoint, data={
             'items': [
                 {
                     'book': self.b1.pk,
@@ -68,7 +71,7 @@ class TestBasket(APITestCase):
 
     def test_basket_book_underflow_2(self):
         # create basket - this should pass
-        response = self.client.post('/api/v1/basket/create/', data={
+        response = self.client.post(self.basket_create_endpoint, data={
             'items': [
                 {
                     'book': self.b1.pk,
@@ -86,7 +89,7 @@ class TestBasket(APITestCase):
         self.assertEqual(self.b2.remaining, 0)
 
         # this should also pass
-        response_2 = self.client.post('/api/v1/basket/create/', data={
+        response_2 = self.client.post(self.basket_create_endpoint, data={
             'items': [
                 {
                     'book': self.b1.pk,
@@ -100,7 +103,7 @@ class TestBasket(APITestCase):
         self.assertEqual(self.b2.remaining, 0)
 
         # this should fail
-        response_3 = self.client.post('/api/v1/basket/create/', data={
+        response_3 = self.client.post(self.basket_create_endpoint, data={
             'items': [
                 {
                     'book': self.b1.pk,
@@ -129,7 +132,7 @@ class TestBasket(APITestCase):
         self.assertEqual(self.b2.remaining, 0)
 
         # this should fail too
-        response_4 = self.client.post('/api/v1/basket/create/', data={
+        response_4 = self.client.post(self.basket_create_endpoint, data={
             'items': [
                 {
                     'book': self.b1.pk,
@@ -159,7 +162,7 @@ class TestBasket(APITestCase):
         basket_2.invoice.save()
 
         # now this should pass
-        response_5 = self.client.post('/api/v1/basket/create/', data={
+        response_5 = self.client.post(self.basket_create_endpoint, data={
             'items': [
                 {
                     'book': self.b1.pk,
@@ -193,7 +196,7 @@ class TestBasket(APITestCase):
 
     def test_sold_remaining(self):
         # create a basket
-        response = self.client.post('/api/v1/basket/create/', data=self.basket_create_test_data(), format='json')
+        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
 
         api_response = json.loads(response.content)
         basket = Basket.objects.get(pk=api_response.get('pk'))
@@ -246,7 +249,7 @@ class TestBasket(APITestCase):
         self.assertEqual(self.b2.remaining, 2)
 
     def test_basket_create(self):
-        response = self.client.post('/api/v1/basket/create/', data=self.basket_create_test_data(), format='json')
+        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
 
         api_response = json.loads(response.content)
         total_amount = self.b1.final_price + self.b2.final_price * 2
@@ -269,7 +272,7 @@ class TestBasket(APITestCase):
 
     def test_basket_expiration(self):
         # create the test basket
-        response = self.client.post('/api/v1/basket/create/', data=self.basket_create_test_data(), format='json')
+        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
         api_response = json.loads(response.content)
 
         basket = Basket.objects.get(pk=api_response.get('pk'))
@@ -288,7 +291,7 @@ class TestBasket(APITestCase):
 
     def test_basket_validation(self):
         # create the test basket
-        response = self.client.post('/api/v1/basket/create/', data=self.basket_create_test_data(), format='json')
+        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
         api_response = json.loads(response.content)
 
         basket = Basket.objects.get(pk=api_response.get('pk'))
@@ -337,14 +340,16 @@ class TestBasket(APITestCase):
 
     def test_valid_basket_payment(self):
         # create the test basket
-        response = self.client.post('/api/v1/basket/create/', data=self.basket_create_test_data(), format='json')
+        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
         api_response = json.loads(response.content)
 
         # get invoice internal id
         invoice_internal_id = api_response.get('invoice').get('internal_id')
         invoice = Invoice.objects.get(internal_id=invoice_internal_id)
 
-        payment_response = self.client.get('/api/v1/payment/make/%s/' % invoice_internal_id)
+        make_payment_endpoint = reverse('payment_make', kwargs={'internal_id': invoice_internal_id})
+
+        payment_response = self.client.get(make_payment_endpoint)
 
         self.assertEqual(payment_response.status_code, 200)
 
@@ -353,5 +358,19 @@ class TestBasket(APITestCase):
         self.assertEqual(invoice.status, Invoice.IN_PAYMENT)
 
         # another attempt to pay the same invoice must cause an error
-        payment_response_second_attempt = self.client.get('/api/v1/payment/make/%s/' % invoice_internal_id)
+        payment_response_second_attempt = self.client.get(make_payment_endpoint)
         self.assertEqual(payment_response_second_attempt.status_code, 400)
+
+
+class UserProfileTestCase(APITestCase):
+
+    # def test_user_profile_send_code(self):
+    #     send_code_endpoint = reverse('send_code')
+    #     response = self.client.post(send_code_endpoint, data={'phone_number': "09303131503"})
+    #     api_response = json.loads(response.content)
+    #
+    #     self.assertEqual(response.status_code, 201)
+
+    def test_get_or_create_user(self):
+        # get_or_create_user_endpoint = reverse('get_or_create_user', kwargs={'p'})
+        pass
