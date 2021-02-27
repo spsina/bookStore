@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import BookRetrieveView, BookListView, \
-    BasketCreateView, MakePaymentView
+    BasketCreateView, MakePaymentView, UserProfileSendCode
 
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
@@ -19,7 +19,7 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     # user profile
-    # path('user_profile/send-code/', name="send_code"),
+    path('user-profile/send/code/', UserProfileSendCode.as_view(), name="send_code"),
 
     # book
     path('book/<int:book_id>/', BookRetrieveView.as_view(), name="book_detail"),

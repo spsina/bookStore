@@ -3,12 +3,16 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import UserProfileSerializer, BookSerializer, BasketCreate
+from .serializers import UserProfileSerializer, BookSerializer, BasketCreate, SendCodeSerializer
 from .models import UserProfile, Book, Invoice
 from .permissions import IsLoggedIn
 from django.utils.translation import gettext as _
 
 from .vandar import vandar_prepare_for_payment
+
+
+class UserProfileSendCode(generics.CreateAPIView):
+    serializer_class = SendCodeSerializer
 
 
 class BookRetrieveView(generics.RetrieveAPIView):

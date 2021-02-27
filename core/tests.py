@@ -7,6 +7,20 @@ from .models import *
 from django.urls import reverse
 
 
+class UserCProfileTestCase(APITestCase):
+
+    def test_user_profile_send_code_endpoint(self):
+        send_code_endpoint = reverse('send_code')
+        response = self.client.post(send_code_endpoint, data={'phone_number': "09303131503"})
+        api_response = json.loads(response.content)
+        print(api_response)
+        self.assertEqual(response.status_code, 201)
+
+    def test_get_or_create_user(self):
+        # get_or_create_user_endpoint = reverse('get_or_create_user', kwargs={'p'})
+        pass
+
+
 class TestBasket(APITestCase):
 
     def setUp(self):
@@ -360,17 +374,3 @@ class TestBasket(APITestCase):
         # another attempt to pay the same invoice must cause an error
         payment_response_second_attempt = self.client.get(make_payment_endpoint)
         self.assertEqual(payment_response_second_attempt.status_code, 400)
-
-
-class UserProfileTestCase(APITestCase):
-
-    # def test_user_profile_send_code(self):
-    #     send_code_endpoint = reverse('send_code')
-    #     response = self.client.post(send_code_endpoint, data={'phone_number': "09303131503"})
-    #     api_response = json.loads(response.content)
-    #
-    #     self.assertEqual(response.status_code, 201)
-
-    def test_get_or_create_user(self):
-        # get_or_create_user_endpoint = reverse('get_or_create_user', kwargs={'p'})
-        pass

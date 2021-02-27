@@ -1,6 +1,10 @@
+from django.core.validators import RegexValidator
 from django.db import transaction
 from rest_framework import serializers
-from .models import UserProfile, Book, Basket, Person, Item, Invoice, Publisher
+
+from BookStore.settings import DEBUG
+from .helpers import send_verification_code
+from .models import UserProfile, Book, Basket, Person, Item, Invoice, Publisher, UserProfilePhoneVerification
 from django.contrib.auth.models import User
 from django.utils.translation import gettext as _
 
@@ -31,6 +35,48 @@ class UserProfileSerializer(serializers.ModelSerializer):
         instance.refresh_from_db()
 
         return instance
+
+
+class SendCodeSerializer(serializers.ModelSerializer):
+    phone_number = serializers.CharField(validators=[RegexValidator(
+        regex=r"^(\+98|0)?9\d{9}$",
+        message=_("Enter a valid phone number"),
+        code='invalid_phone_number'),
+    ], write_only=True)
+
+    class Meta:
+        model = UserProfilePhoneVerification
+        fields = ['pk', 'create_date', 'query_times', 'phone_number']
+
+        extra_kwargs = {
+            'create_date': {'read_only': True},
+            'query_times': {'read_only': True},
+            'phone_number': {'read_only': True},
+        }
+        if DEBUG:
+            fields += ['code']
+            extra_kwargs['code'] = {'read_only': True}
+
+    def create(self, validated_data):
+        phone_number = validated_data.get('phone_number')
+
+        # get or create a user profile
+        try:
+            user_profile = UserProfile.objects.get(phone_number=phone_number)
+        except UserProfile.DoesNotExist:
+            serializer = UserProfileSerializer(data=validated_data)
+            serializer.is_valid(raise_exception=True)
+            user_profile = serializer.save()
+
+        # send a verification sms to the given user_profile
+        verification_object = user_profile.get_verification_object()
+
+        if verification_object.get('status') != 201:
+            raise serializers.ValidationError(verification_object)
+
+        send_verification_code(user_profile.phone_number, verification_object.get('obj').code)
+
+        return verification_object.get('obj')
 
 
 class PersonSerializer(serializers.ModelSerializer):
