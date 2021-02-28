@@ -18,7 +18,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
                   'delivery_phone_number',
                   'land_line',
                   'email',
-
+                  'token',
                   'province', 'city', 'address', 'postal_code']
 
         extra_kwargs = {'user': {'read_only': True}}

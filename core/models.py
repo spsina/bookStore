@@ -5,6 +5,7 @@ from django.contrib.auth.models import User
 from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
 import math
 import uuid
+from rest_framework.authtoken.models import Token
 
 from django.db.models import Sum
 from django.utils.translation import gettext as _
@@ -48,6 +49,11 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return "%d - %s - %s %s" % (self.pk, self.phone_number, self.first_name, self.last_name)
+
+    @property
+    def token(self):
+        token, created = Token.objects.get_or_create(user=self.user)
+        return token.key
 
     def get_verification_object(self):
         return UserProfilePhoneVerification.objects.create(user_profile=self)

@@ -15,6 +15,14 @@ class UserProfileSendCode(generics.CreateAPIView):
     serializer_class = SendCodeSerializer
 
 
+class UserProfileRUView(generics.RetrieveUpdateAPIView):
+    permission_classes = (IsLoggedIn,)
+    serializer_class = UserProfileSerializer
+
+    def get_object(self):
+        return self.request.user.user_profile
+
+
 class GetUserInfoView(generics.GenericAPIView):
     serializer_class = GetUserInfoSerializer
 
@@ -26,7 +34,7 @@ class GetUserInfoView(generics.GenericAPIView):
         vo = UserProfilePhoneVerification.objects.last_not_expired_verification_object(user_profile=user_profile)
 
         if not vo:
-            return Response({'phone_number':  _("Phone number not found")}, status=400)
+            return Response({'phone_number': _("Phone number not found")}, status=400)
 
         if vo.is_usable:
             if vo.code == serializer.validated_data.get('code'):
