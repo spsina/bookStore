@@ -184,6 +184,8 @@ class Book(models.Model):
 
     # header image
     image = models.ImageField(blank=True, null=True)
+    cover_type = models.CharField(max_length=120, blank=True, null=True)
+    page_count = models.IntegerField(default=0, blank=True, null=True)
 
     # number of this books available
     count = models.PositiveIntegerField(default=0)

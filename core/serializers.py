@@ -122,6 +122,7 @@ class BookSerializer(serializers.ModelSerializer):
                   'publisher', 'edition',
                   'authors', 'editors', 'translators',
                   'price', 'discount', 'isbn', 'final_price',
+                  'cover_type', 'page_count',
                   'image', 'count', 'is_delete', 'sold'
                   ]
 
