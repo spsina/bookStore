@@ -26,7 +26,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = True
 
 ALLOWED_HOSTS = ['localhost', '127.0.0.1',
-                 'abee.ir', ]
+                 'abee.ir',
+                 "api.abee.ir",
+                 ]
 
 # Application definition
 
