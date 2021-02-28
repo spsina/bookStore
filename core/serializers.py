@@ -64,9 +64,7 @@ class SendCodeSerializer(serializers.ModelSerializer):
         try:
             user_profile = UserProfile.objects.get(phone_number=phone_number)
         except UserProfile.DoesNotExist:
-            serializer = UserProfileSerializer(data=validated_data)
-            serializer.is_valid(raise_exception=True)
-            user_profile = serializer.save()
+            user_profile = self.create_user_profile(validated_data)
 
         # send a verification sms to the given user_profile
         verification_object = user_profile.get_verification_object()
@@ -77,6 +75,22 @@ class SendCodeSerializer(serializers.ModelSerializer):
         send_verification_code(user_profile.phone_number, verification_object.get('obj').code)
 
         return verification_object.get('obj')
+
+    @staticmethod
+    def create_user_profile(validated_data):
+        serializer = UserProfileSerializer(data=validated_data)
+        serializer.is_valid(raise_exception=True)
+        user_profile = serializer.save()
+        return user_profile
+
+
+class GetUserInfoSerializer(serializers.Serializer):
+    phone_number = serializers.CharField(validators=[RegexValidator(
+        regex=r"^(\+98|0)?9\d{9}$",
+        message=_("Enter a valid phone number"),
+        code='invalid_phone_number'),
+    ], write_only=True)
+    code = serializers.CharField()
 
 
 class PersonSerializer(serializers.ModelSerializer):

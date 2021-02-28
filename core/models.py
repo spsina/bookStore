@@ -58,7 +58,7 @@ class UserProfilePhoneVerificationObjectManager(models.Manager):
     def _get_or_create(self, **kwargs):
         created = False
         user_profile = kwargs.get('user_profile')
-        verification_object = self.last_valid_verification_object(user_profile)
+        verification_object = self.last_not_expired_verification_object(user_profile)
         if not verification_object:
             # create a new object if none exists
             verification_object = UserProfilePhoneVerification(**kwargs)
@@ -86,14 +86,16 @@ class UserProfilePhoneVerificationObjectManager(models.Manager):
             }
 
     @staticmethod
-    def last_valid_verification_object(user_profile):
+    def last_not_expired_verification_object(user_profile):
         time = timezone.now() - timezone.timedelta(minutes=UserProfilePhoneVerification.RETRY_TIME)
         # select the latest valid user profile phone verification object
         user_profile_phone = UserProfilePhoneVerification.objects.order_by('-create_date'). \
             filter(create_date__gte=time,
                    user_profile__phone_number=user_profile.phone_number) \
             .last()
-        return user_profile_phone
+
+        if user_profile_phone and user_profile_phone.is_usable:
+            return user_profile_phone
 
     @staticmethod
     def remaining_time_until_next_verification_object_can_be_created(user_profile_phone):
@@ -120,6 +122,10 @@ class UserProfilePhoneVerification(models.Model):
     burnt = models.BooleanField(default=False)
 
     objects = UserProfilePhoneVerificationObjectManager()
+
+    @property
+    def is_usable(self):
+        return not self.used and not self.burnt and self.query_times <= UserProfilePhoneVerification.MAX_QUERY
 
 
 class Person(models.Model):

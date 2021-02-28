@@ -3,8 +3,8 @@ from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import UserProfileSerializer, BookSerializer, BasketCreate, SendCodeSerializer
-from .models import UserProfile, Book, Invoice
+from .serializers import UserProfileSerializer, BookSerializer, BasketCreate, SendCodeSerializer, GetUserInfoSerializer
+from .models import UserProfile, Book, Invoice, UserProfilePhoneVerification
 from .permissions import IsLoggedIn
 from django.utils.translation import gettext as _
 
@@ -13,6 +13,34 @@ from .vandar import vandar_prepare_for_payment
 
 class UserProfileSendCode(generics.CreateAPIView):
     serializer_class = SendCodeSerializer
+
+
+class GetUserInfoView(generics.GenericAPIView):
+    serializer_class = GetUserInfoSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user_profile = get_object_or_404(UserProfile, phone_number=serializer.validated_data.get('phone_number'))
+        vo = UserProfilePhoneVerification.objects.last_not_expired_verification_object(user_profile=user_profile)
+
+        if not vo:
+            return Response({'phone_number':  _("Phone number not found")}, status=400)
+
+        if vo.is_usable:
+            if vo.code == serializer.validated_data.get('code'):
+                vo.used = True
+                vo.save()
+                return Response(UserProfileSerializer(instance=user_profile).data)
+
+            # todo: anti concurrency
+            vo.query_times += 1
+            if vo.query_times == UserProfilePhoneVerification.MAX_QUERY:
+                vo.burnt = True
+            vo.save()
+            remaining_query_times = UserProfilePhoneVerification.MAX_QUERY - vo.query_times
+            return Response({'code': _("Incorrect Code"), 'remaining_query_times': remaining_query_times}, status=400)
 
 
 class BookRetrieveView(generics.RetrieveAPIView):
