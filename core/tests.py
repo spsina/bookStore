@@ -105,7 +105,6 @@ class UserCProfileTestCase(APITestCase):
 
         # this should pass
         response = self.client.post(send_code_endpoint, data={'phone_number': "09303131503"})
-        api_response = json.loads(response.content)
         self.assertEqual(response.status_code, 201)
 
     def test_user_profile_auth_token_login(self):
@@ -140,6 +139,40 @@ class UserCProfileTestCase(APITestCase):
         self.assertEqual(api_response.get('phone_number'), "09303131503")
         self.assertEqual(api_response.get('first_name'), None)
         self.assertEqual(api_response.get('last_name'), None)
+
+    def test_user_profile_update(self):
+        send_code_endpoint = reverse('send_code')
+        get_user_info = reverse('get_user_info')
+        update_user_profile_info = reverse('user_profile_retrieve_update')
+
+        response = self.client.post(send_code_endpoint, data={'phone_number': "09303131503"})
+        api_response = json.loads(response.content)
+        self.assertEqual(response.status_code, 201)
+
+        code = api_response.get('code')
+
+        # we should be able to get the user info with the given code
+        response = self.client.post(get_user_info, data={'phone_number': "09303131503", 'code': code})
+        api_response = json.loads(response.content)
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + api_response.get('token'))
+        new_user_profile_data = {
+            'phone_number': '09303131503',
+            'first_name': 'Ali',
+            'last_name': 'Parvizi',
+            'delivery_phone_number': '09017938091',
+            'land_line': '07138325475',
+            'email': 'snparvizi75@gmail.com',
+            'province': "Farse",
+            "city": "Shiraz",
+            "address": "address line here",
+            "postal_code": "717"
+        }
+        response = self.client.put(update_user_profile_info, data=new_user_profile_data)
+        api_response = json.loads(response.content)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertGreaterEqual(api_response.keys(), new_user_profile_data.keys())
 
 
 class TestBasket(APITestCase):
