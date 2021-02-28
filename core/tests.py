@@ -445,7 +445,7 @@ class TestBasket(APITestCase):
         self.assertEqual(basket.is_valid, True)
 
     def test_valid_basket_payment(self):
-        if False:
+        if True:
             # create the test basket
             response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
             api_response = json.loads(response.content)

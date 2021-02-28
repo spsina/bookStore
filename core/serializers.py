@@ -14,6 +14,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = ['pk', 'user',
                   'first_name', 'last_name', 'phone_number',
+
+                  'delivery_phone_number',
+                  'land_line',
+                  'email',
+
                   'province', 'city', 'address', 'postal_code']
 
         extra_kwargs = {'user': {'read_only': True}}
@@ -175,10 +180,11 @@ class BasketCreate(serializers.ModelSerializer):
 
         with transaction.atomic():
             invoice = Invoice.objects.create(amount=1000)
-            basket = Basket.objects.create(user_profile=validated_data.get('user_profile'), invoice=invoice)
+            items = validated_data.pop('items')
+            basket = Basket.objects.create(**validated_data, invoice=invoice)
 
             # create items
-            for item in validated_data.get('items'):
+            for item in items:
 
                 # lock the book
                 _book = item.get('book')
