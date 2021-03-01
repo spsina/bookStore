@@ -178,15 +178,24 @@ class UserCProfileTestCase(APITestCase):
 class TestBasket(APITestCase):
 
     def setUp(self):
-        user = User.objects.create_user(username="spsina", password="thecode")
-        self.user_profile = UserProfile.objects.create(
-            user=user,
-            phone_number="09017938091"
-        )
+        self.createUserProfile()
+        self.createBookB1AndB2()
+
+        self.basket_create_endpoint = reverse('basket_create')
+
+        self.createSampleConfigObject()
+
+    def createSampleConfigObject(self):
+        # set some delivery fee
+        config = Config.get_instance()
+        config.delivery_fee = 1000
+        config.save()
+        self.config = config
+
+    def createBookB1AndB2(self):
         p1 = Person.objects.create(first_name="sina")
         p2 = Person.objects.create(first_name="ali")
         pb1 = Publisher.objects.create(name="abee")
-
         b1 = Book(title="Test book 1",
                   description="desc1",
                   publisher=pb1,
@@ -194,7 +203,6 @@ class TestBasket(APITestCase):
                   count=3)
         b1.save()
         b1.authors.add(p1)
-
         b2 = Book(title="Test Book 2",
                   description="desc3",
                   price=15000,
@@ -203,94 +211,52 @@ class TestBasket(APITestCase):
         b2.save()
         b2.authors.add(p2)
         b2.translators.add(p1)
-
         self.b1 = b1
         self.b2 = b2
+
+    def createUserProfile(self):
+        user = User.objects.create_user(username="spsina", password="thecode")
+        self.user_profile = UserProfile.objects.create(
+            user=user,
+            phone_number="09017938091"
+        )
         self.client.login(username="spsina", password="thecode")
 
-        self.basket_create_endpoint = reverse('basket_create')
-
-        # set some delivery fee
-        config = Config.get_instance()
-        config.delivery_fee = 1000
-        config.save()
-
-        self.config = config
-
-    def test_basket_book_underflow_1(self):
-        # create basket
+    def createBasketWithB1AndB2Count(self, b1_count, b2_count):
         response = self.client.post(self.basket_create_endpoint, data={
             'items': [
                 {
                     'book': self.b1.pk,
-                    'count': 5
+                    'count': b1_count
                 },
                 {
                     'book': self.b2.pk,
-                    'count': 3
+                    'count': b2_count
                 },
             ]
         }, format='json')
 
-        true_response = {
-            'items': [
-                _("Book %d - %s underflow") % (self.b1.pk, self.b1.title),
-                _("Book %d - %s underflow") % (self.b2.pk, self.b2.title)
-            ]
-        }
+        return response
 
-        api_response = json.loads(response.content)
-
-        self.assertEqual(response.status_code, 400)
-        self.assertEqual(true_response, api_response)
-
-    def test_basket_book_underflow_2(self):
-        # create basket - this should pass
-        response = self.client.post(self.basket_create_endpoint, data={
-            'items': [
-                {
-                    'book': self.b1.pk,
-                    'count': 1
-                },
-                {
-                    'book': self.b2.pk,
-                    'count': 2
-                },
-            ]
-        }, format='json')
-
+    def test_basket_with_enough_book_remaining_1(self):
+        response = self.createBasketWithB1AndB2Count(1, 2)
         self.assertEqual(response.status_code, 201)
         self.assertEqual(self.b1.remaining, 2)
         self.assertEqual(self.b2.remaining, 0)
 
-        # this should also pass
-        response_2 = self.client.post(self.basket_create_endpoint, data={
-            'items': [
-                {
-                    'book': self.b1.pk,
-                    'count': 1
-                },
-            ]
-        }, format='json')
+    def test_basket_with_enough_book_remaining_2(self):
+        response = self.createBasketWithB1AndB2Count(1, 0)
+        self.assertEqual(response.status_code, 400)
 
-        self.assertEqual(response_2.status_code, 201)
-        self.assertEqual(self.b1.remaining, 1)
-        self.assertEqual(self.b2.remaining, 0)
+    def test_basket_book_underflow(self):
+        self.createAndAssertBasketWithMoreBookThanRemaining()
 
-        # this should fail
-        response_3 = self.client.post(self.basket_create_endpoint, data={
-            'items': [
-                {
-                    'book': self.b1.pk,
-                    'count': 2
-                },
-                {
-                    'book': self.b2.pk,
-                    'count': 2
-                },
-            ]
-        }, format='json')
+        # remaining should not change
+        self.assertEqual(self.b1.remaining, 3)
+        self.assertEqual(self.b2.remaining, 2)
 
+    def createAndAssertBasketWithMoreBookThanRemaining(self):
+        response_3 = self.createBasketWithB1AndB2Count(4, 3)
         true_response = {
             'items': [
                 _("Book %d - %s underflow") % (self.b1.pk, self.b1.title),
@@ -298,59 +264,8 @@ class TestBasket(APITestCase):
             ]
         }
         api_response_3 = json.loads(response_3.content)
-
         self.assertEqual(response_3.status_code, 400)
         self.assertEqual(api_response_3, true_response)
-
-        # remaining should not change
-        self.assertEqual(self.b1.remaining, 1)
-        self.assertEqual(self.b2.remaining, 0)
-
-        # this should fail too
-        response_4 = self.client.post(self.basket_create_endpoint, data={
-            'items': [
-                {
-                    'book': self.b1.pk,
-                    'count': 2
-                },
-            ]
-        }, format='json')
-
-        true_response_4 = {
-            'items': [
-                _("Book %d - %s underflow") % (self.b1.pk, self.b1.title),
-            ]
-        }
-        api_response_4 = json.loads(response_4.content)
-
-        self.assertEqual(response_4.status_code, 400)
-        self.assertEqual(api_response_4, true_response_4)
-
-        # remaining should not change
-        self.assertEqual(self.b1.remaining, 1)
-        self.assertEqual(self.b2.remaining, 0)
-
-        # let's invalidate response_2
-        api_response_2 = json.loads(response_2.content)
-        basket_2 = Basket.objects.get(pk=api_response_2.get('pk'))
-        basket_2.invoice.status = Invoice.REJECTED
-        basket_2.invoice.save()
-
-        # now this should pass
-        response_5 = self.client.post(self.basket_create_endpoint, data={
-            'items': [
-                {
-                    'book': self.b1.pk,
-                    'count': 2
-                },
-            ]
-        }, format='json')
-
-        self.assertEqual(response_5.status_code, 201)
-
-        # remaining should be 0
-        self.assertEqual(self.b1.remaining, 0)
-        self.assertEqual(self.b2.remaining, 0)
 
     def get_the_sample_basket_data(self):
         """
@@ -370,13 +285,13 @@ class TestBasket(APITestCase):
         }
 
     def test_book_remaining_when_expired_basket(self):
-        basket = self.createAndGetBascket()
+        basket = self.createAndGetBasket()
 
         self.invalidatedBasketBySettingInvoiceLastTryTimeTo20MinsAgo(basket.invoice)
         self.assertEffectsOfInvalidBasketOnBookRemainingCount()
 
     def test_book_remaining_when_payed_basket(self):
-        basket = self.createAndGetBascket()
+        basket = self.createAndGetBasket()
 
         # change invoice status to PAYED
         basket.invoice.status = Invoice.PAYED
@@ -385,7 +300,7 @@ class TestBasket(APITestCase):
         self.assertEffectsOfValidBasketOnBookRemainingCount()
 
     def test_book_remaining_when_in_payment_basket(self):
-        basket = self.createAndGetBascket()
+        basket = self.createAndGetBasket()
 
         # change invoice status to IN PAYMENT
         basket.invoice.status = Invoice.IN_PAYMENT
@@ -394,14 +309,14 @@ class TestBasket(APITestCase):
         self.assertEffectsOfValidBasketOnBookRemainingCount()
 
     def test_book_remaining_when_rejected_basket(self):
-        basket = self.createAndGetBascket()
+        basket = self.createAndGetBasket()
         # change invoice status to REJECTED
         basket.invoice.status = Invoice.REJECTED
         basket.invoice.save()
         self.assertEffectsOfInvalidBasketOnBookRemainingCount()
 
     def test_book_remaining_when_created_basket(self):
-        self.createAndGetBascket()
+        self.createAndGetBasket()
         self.assertEffectOfBasketCreationOnBookRemainingCount()
 
     def assertEffectsOfInvalidBasketOnBookRemainingCount(self):
@@ -436,7 +351,7 @@ class TestBasket(APITestCase):
                          actual_total_amount + self.config.delivery_fee)
 
     def test_basket_expiration(self):
-        basket = self.createAndGetBascket()
+        basket = self.createAndGetBasket()
 
         # this basket is created write now, so last try datetime
         # is not expired
@@ -445,7 +360,7 @@ class TestBasket(APITestCase):
         self.assertEqual(basket.is_expired, True)
 
     def test_basket_validation(self):
-        basket = self.createAndGetBascket()
+        basket = self.createAndGetBasket()
 
         # this basket is created write now, so last try datetime
         # is not expired and it's not paid, so basket is valid
@@ -486,7 +401,7 @@ class TestBasket(APITestCase):
 
         self.assertEqual(basket.is_valid_for_payment, True)
 
-    def createAndGetBascket(self):
+    def createAndGetBasket(self):
         response = self.createTheSampleBasket()
         api_response = json.loads(response.content)
         basket = Basket.objects.get(pk=api_response.get('pk'))
