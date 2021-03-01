@@ -329,12 +329,20 @@ class Basket(models.Model):
         return (timezone.now() - self.invoice.last_try_datetime) > timezone.timedelta(minutes=PAYMENT_BUFFER_TIME)
 
     @property
-    def is_valid(self):
+    def is_valid_for_payment(self):
         """
         A valid basket is not expired and not payed
         """
 
         return not self.is_expired and self.invoice.status == Invoice.CREATED
+
+    @property
+    def is_valid_for_verification(self):
+        """
+        Is not expired and it's invoice status is in paying
+        """
+
+        return not self.is_expired and self.invoice.status == Invoice.IN_PAYMENT
 
     def __str__(self):
         return "%d - %s" % (self.pk, self.user_profile)

@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import BookRetrieveView, BookListView, \
-    BasketCreateView, MakePaymentView, UserProfileSendCode, GetUserInfoView, UserProfileRUView
+    BasketCreateView, MakePaymentView, UserProfileSendCode, GetUserInfoView, UserProfileRUView, VerifyPaymentView
 
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
@@ -33,7 +33,7 @@ urlpatterns = [
 
     # payment
     path('payment/make/<internal_id>/', MakePaymentView.as_view(), name="payment_make"),
-    path('payment/verify/<internal_id>/', MakePaymentView.as_view(), name="payment_verify"),
+    path('payment/verify/<internal_id>/', VerifyPaymentView.as_view(), name="payment_verify"),
 
     # docs
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),

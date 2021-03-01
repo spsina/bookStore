@@ -18,7 +18,7 @@ def vandar_prepare_for_payment(invoice, request):
     """
 
     # validate invoice
-    if not invoice.basket.is_valid:
+    if not invoice.basket.is_valid_for_payment:
         return {'status': 400, 'details': ["Invalid Invoice", ]}
 
     # generate callback url

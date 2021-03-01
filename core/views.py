@@ -1,14 +1,16 @@
+from django.db import transaction
 from django.shortcuts import render, get_object_or_404
 from rest_framework import generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from BookStore.settings import DEBUG
 from .serializers import UserProfileSerializer, BookSerializer, BasketCreate, SendCodeSerializer, GetUserInfoSerializer
 from .models import UserProfile, Book, Invoice, UserProfilePhoneVerification
 from .permissions import IsLoggedIn
 from django.utils.translation import gettext as _
 
-from .vandar import vandar_prepare_for_payment
+from .vandar import vandar_prepare_for_payment, vandar_verify_payment
 
 
 class UserProfileSendCode(generics.CreateAPIView):
@@ -77,7 +79,7 @@ class MakePaymentView(APIView):
         invoice = get_object_or_404(Invoice, internal_id=kwargs.get('internal_id'))
 
         # reject invalid basket
-        if not invoice.basket.is_valid:
+        if not invoice.basket.is_valid_for_payment:
             return Response({'details': _("Invalid Basket")}, status=400)
 
         result = vandar_prepare_for_payment(invoice, request)
@@ -86,7 +88,40 @@ class MakePaymentView(APIView):
         if result.get('status') != 200:
             return Response(result)
 
-        # redirect url fetch from vandar
+        # redirect url fetched from vandar
         return Response({
             'redirect_to': result.get('redirect_to')
         })
+
+
+class VerifyPaymentView(APIView):
+
+    @staticmethod
+    def doesHaveValidBasket(invoice):
+        basket = invoice.basket
+        return basket.is_valid_for_verification
+
+    @staticmethod
+    def validateInvoice(invoice):
+        if DEBUG:
+            invoice.status = Invoice.PAYED
+            invoice.save()
+        else:
+            vandar_verify_payment(invoice)
+
+    @staticmethod
+    def isInvoiceValidated(invoice):
+        return invoice.status == Invoice.PAYED
+
+    def get(self, request, *args, **kwargs):
+        invoice = get_object_or_404(Invoice, internal_id=kwargs.get('internal_id'))
+
+        if not self.doesHaveValidBasket(invoice):
+            return Response(status=400)
+
+        self.validateInvoice(invoice)
+
+        if not self.isInvoiceValidated(invoice):
+            return Response(status=400)
+
+        return Response(status=200)
