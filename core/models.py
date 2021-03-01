@@ -252,6 +252,7 @@ class Invoice(models.Model):
     internal_id = models.UUIDField(default=uuid.uuid4, unique=True)
 
     amount = models.PositiveIntegerField(validators=[MinValueValidator(1000)])
+    delivery_fee = models.PositiveIntegerField(validators=[MinValueValidator(1000)])
     create_datetime = models.DateTimeField(auto_now_add=True)
     last_try_datetime = models.DateTimeField(default=timezone.now)
 
@@ -265,6 +266,10 @@ class Invoice(models.Model):
     card_number = models.CharField(max_length=16, blank=True, null=True)
     cid = models.CharField(max_length=255, blank=True, null=True)
     payment_date = models.CharField(max_length=255, blank=True, null=True)
+
+    @property
+    def total_payable_amount(self):
+        return self.amount + self.delivery_fee
 
 
 class Item(models.Model):
@@ -346,3 +351,49 @@ class Basket(models.Model):
 
     def __str__(self):
         return "%d - %s" % (self.pk, self.user_profile)
+
+
+class SingletonModel(models.Model):
+    """Singleton Django Model"""
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        """
+        Save object to the database. Removes all other entries if there
+        are any.
+        """
+        self.__class__.objects.exclude(id=self.id).delete()
+        super(SingletonModel, self).save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        """
+        Load object from the database. Failing that, create a new empty
+        (default) instance of the object and return it (without saving it
+        to the database).
+        """
+
+        try:
+            return cls.objects.get()
+        except cls.DoesNotExist:
+            return cls()
+
+
+class Config(SingletonModel):
+    delivery_fee = models.IntegerField(default=0)
+
+    @staticmethod
+    def get_instance():
+        return Config.get_or_create_instance()
+
+    @staticmethod
+    def get_or_create_instance():
+        instance = Config.objects.first()
+        if not instance:
+            config = Config()
+            config.save()
+            return config
+        else:
+            return instance

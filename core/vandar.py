@@ -34,7 +34,7 @@ def vandar_prepare_for_payment(invoice, request):
         'https://ipg.vandar.io/api/v3/send',
         data={
             'api_key': VANDAR_API_KEY,
-            'amount': math.ceil(invoice.amount) * 10,
+            'amount': math.ceil(invoice.total_payable_amount) * 10,
             'callback_url': callback
         }
     )

@@ -1,6 +1,7 @@
 from django.contrib import admin
-from .models import UserProfile, Book, Basket, Person, Invoice, Item, Publisher
+from .models import UserProfile, Book, Basket, Person, Invoice, Item, Publisher, Config
 from django.utils.html import format_html
+from django.utils.translation import gettext as _
 
 
 class UserProfileAdmin(admin.ModelAdmin):
@@ -87,7 +88,18 @@ class ItemAdmin(admin.ModelAdmin):
 
 
 class PublisherAdmin(admin.ModelAdmin):
-    list_display = ['pk', 'name',]
+    list_display = ['pk', 'name', ]
+
+
+class ConfigAdmin(admin.ModelAdmin):
+    list_display = ['delivery_fee', 'edit']
+    list_editable = ['delivery_fee', ]
+
+    list_display_links = ['edit', ]
+
+    @staticmethod
+    def edit(instance):
+        return _("edit")
 
 
 admin.site.register(UserProfile, UserProfileAdmin)
@@ -97,3 +109,4 @@ admin.site.register(Person, PersonAdmin)
 admin.site.register(Invoice, InvoiceAdmin)
 admin.site.register(Item, ItemAdmin)
 admin.site.register(Publisher, PublisherAdmin)
+admin.site.register(Config, ConfigAdmin)

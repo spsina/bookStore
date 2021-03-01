@@ -4,7 +4,7 @@ from rest_framework import serializers
 
 from BookStore.settings import DEBUG
 from .helpers import send_verification_code
-from .models import UserProfile, Book, Basket, Person, Item, Invoice, Publisher, UserProfilePhoneVerification
+from .models import UserProfile, Book, Basket, Person, Item, Invoice, Publisher, UserProfilePhoneVerification, Config
 from django.contrib.auth.models import User
 from django.utils.translation import gettext as _
 
@@ -186,7 +186,8 @@ class BasketCreate(serializers.ModelSerializer):
         # create basket
 
         with transaction.atomic():
-            invoice = Invoice.objects.create(amount=1000)
+            config = Config.get_instance()
+            invoice = Invoice.objects.create(amount=1000, delivery_fee=config.delivery_fee)
             items = validated_data.pop('items')
             basket = Basket.objects.create(**validated_data, invoice=invoice)
 
