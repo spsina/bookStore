@@ -211,3 +211,11 @@ class BasketCreate(serializers.ModelSerializer):
         invoice.save()
 
         return basket
+
+
+class ConfigSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Config
+        fields = '__all__'
+

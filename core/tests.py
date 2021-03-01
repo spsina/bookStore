@@ -417,7 +417,6 @@ class TestBasket(APITestCase):
         self.assertEqual(self.b2.remaining, 2)
 
     def test_basket_create(self):
-
         # set some delivery fee
         config = Config.get_instance()
         config.delivery_fee = 1000
@@ -626,3 +625,21 @@ class TestBasket(APITestCase):
         verify_payment_endpoint = reverse('payment_verify', kwargs={'internal_id': invoice.internal_id})
         verify_response = self.client.get(verify_payment_endpoint)
         return verify_response
+
+
+class TestConfig(APITestCase):
+
+    def setUp(self) -> None:
+        config = Config.get_instance()
+        config.delivery_fee = 1400
+        config.save()
+
+        self.config = config
+
+    def test_get_config_data(self):
+        get_config_endpoint = reverse('get_config')
+
+        response = self.client.get(get_config_endpoint)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(json.loads(response.content).get('delivery_fee'), self.config.delivery_fee)

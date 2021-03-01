@@ -6,8 +6,8 @@ from rest_framework.views import APIView
 
 from BookStore.settings import DEBUG
 from .serializers import UserProfileSerializer, BookSerializer, BasketCreate, SendCodeSerializer, GetUserInfoSerializer, \
-    InvoiceDetailedSerializer
-from .models import UserProfile, Book, Invoice, UserProfilePhoneVerification
+    InvoiceDetailedSerializer, ConfigSerializer
+from .models import UserProfile, Book, Invoice, UserProfilePhoneVerification, Config
 from .permissions import IsLoggedIn
 from django.utils.translation import gettext as _
 
@@ -130,3 +130,11 @@ class VerifyPaymentView(APIView):
             return Response(self.getInvoiceSerializedData(invoice), status=400)
 
         return Response(self.getInvoiceSerializedData(invoice), status=200)
+
+
+class GetConfigView(generics.RetrieveAPIView):
+
+    serializer_class = ConfigSerializer
+
+    def get_object(self):
+        return Config.get_instance()
