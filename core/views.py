@@ -5,7 +5,8 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from BookStore.settings import DEBUG
-from .serializers import UserProfileSerializer, BookSerializer, BasketCreate, SendCodeSerializer, GetUserInfoSerializer
+from .serializers import UserProfileSerializer, BookSerializer, BasketCreate, SendCodeSerializer, GetUserInfoSerializer, \
+    InvoiceDetailedSerializer
 from .models import UserProfile, Book, Invoice, UserProfilePhoneVerification
 from .permissions import IsLoggedIn
 from django.utils.translation import gettext as _
@@ -113,15 +114,19 @@ class VerifyPaymentView(APIView):
     def isInvoiceValidated(invoice):
         return invoice.status == Invoice.PAYED
 
+    @staticmethod
+    def getInvoiceSerializedData(invoice):
+        return InvoiceDetailedSerializer(instance=invoice).data
+
     def get(self, request, *args, **kwargs):
         invoice = get_object_or_404(Invoice, internal_id=kwargs.get('internal_id'))
 
         if not self.doesHaveValidBasket(invoice):
-            return Response(status=400)
+            return Response(self.getInvoiceSerializedData(invoice), status=400)
 
         self.validateInvoice(invoice)
 
         if not self.isInvoiceValidated(invoice):
-            return Response(status=400)
+            return Response(self.getInvoiceSerializedData(invoice), status=400)
 
-        return Response(status=200)
+        return Response(self.getInvoiceSerializedData(invoice), status=200)

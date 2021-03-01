@@ -144,6 +144,12 @@ class InvoiceSerializer(serializers.ModelSerializer):
         fields = ['pk', 'amount', 'internal_id']
 
 
+class InvoiceDetailedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Invoice
+        fields = '__all__'
+
+
 class BasketCreate(serializers.ModelSerializer):
     items = ItemSerializer(many=True)
     invoice = InvoiceSerializer(read_only=True)
