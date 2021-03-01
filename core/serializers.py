@@ -141,7 +141,7 @@ class ItemSerializer(serializers.ModelSerializer):
 class InvoiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
-        fields = ['pk', 'amount', 'internal_id']
+        fields = ['pk', 'amount', 'internal_id', 'delivery_fee', 'total_payable_amount']
 
 
 class InvoiceDetailedSerializer(serializers.ModelSerializer):

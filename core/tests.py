@@ -417,6 +417,12 @@ class TestBasket(APITestCase):
         self.assertEqual(self.b2.remaining, 2)
 
     def test_basket_create(self):
+
+        # set some delivery fee
+        config = Config.get_instance()
+        config.delivery_fee = 1000
+        config.save()
+
         response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
 
         api_response = json.loads(response.content)
@@ -427,6 +433,8 @@ class TestBasket(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertGreaterEqual(api_response.get('subtotal'), total_amount)
         self.assertEqual(api_response.get('invoice').get('amount'), total_amount)
+        self.assertEqual(api_response.get('invoice').get('delivery_fee'), config.delivery_fee)
+        self.assertEqual(api_response.get('invoice').get('total_payable_amount'), total_amount + config.delivery_fee)
 
         # assert effect on book count remaining
         self.assertEqual(self.b1.remaining, 2)
