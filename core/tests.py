@@ -210,6 +210,13 @@ class TestBasket(APITestCase):
 
         self.basket_create_endpoint = reverse('basket_create')
 
+        # set some delivery fee
+        config = Config.get_instance()
+        config.delivery_fee = 1000
+        config.save()
+
+        self.config = config
+
     def test_basket_book_underflow_1(self):
         # create basket
         response = self.client.post(self.basket_create_endpoint, data={
@@ -345,7 +352,7 @@ class TestBasket(APITestCase):
         self.assertEqual(self.b1.remaining, 0)
         self.assertEqual(self.b2.remaining, 0)
 
-    def basket_create_test_data(self):
+    def get_the_sample_basket_data(self):
         """
         Sample basket create book data
         """
@@ -362,123 +369,89 @@ class TestBasket(APITestCase):
             ]
         }
 
-    def test_sold_remaining(self):
-        # create a basket
-        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
+    def test_book_remaining_when_expired_basket(self):
+        basket = self.createAndGetBascket()
 
-        api_response = json.loads(response.content)
-        basket = Basket.objects.get(pk=api_response.get('pk'))
+        self.invalidatedBasketBySettingInvoiceLastTryTimeTo20MinsAgo(basket.invoice)
+        self.assertEffectsOfInvalidBasketOnBookRemainingCount()
 
-        # assert effect on book count remaining
-        self.assertEqual(self.b1.remaining, 2)
-        self.assertEqual(self.b2.remaining, 0)
-
-        # change the invoice last try date time to 20 min ago
-        # this means that this basket is invalid, and it's items should not be locked anymore
-        _20_min_ago = timezone.now() - datetime.timedelta(minutes=PAYMENT_BUFFER_TIME + 5)
-        basket.invoice.last_try_datetime = _20_min_ago
-        basket.invoice.save()
-
-        # assert effect on book count remaining
-        # all books remaining is back to init state
-        self.assertEqual(self.b1.remaining, 3)
-        self.assertEqual(self.b2.remaining, 2)
-
-        # undo invoice last try time
-        basket.invoice.last_try_datetime = timezone.now()
-        basket.invoice.save()
-
-        # basket is valid again
-        self.assertEqual(self.b1.remaining, 2)
-        self.assertEqual(self.b2.remaining, 0)
+    def test_book_remaining_when_payed_basket(self):
+        basket = self.createAndGetBascket()
 
         # change invoice status to PAYED
         basket.invoice.status = Invoice.PAYED
         basket.invoice.save()
 
-        # basket is still valid
-        self.assertEqual(self.b1.remaining, 2)
-        self.assertEqual(self.b2.remaining, 0)
+        self.assertEffectsOfValidBasketOnBookRemainingCount()
+
+    def test_book_remaining_when_in_payment_basket(self):
+        basket = self.createAndGetBascket()
 
         # change invoice status to IN PAYMENT
         basket.invoice.status = Invoice.IN_PAYMENT
         basket.invoice.save()
 
-        # basket is still valid
-        self.assertEqual(self.b1.remaining, 2)
-        self.assertEqual(self.b2.remaining, 0)
+        self.assertEffectsOfValidBasketOnBookRemainingCount()
 
+    def test_book_remaining_when_rejected_basket(self):
+        basket = self.createAndGetBascket()
         # change invoice status to REJECTED
         basket.invoice.status = Invoice.REJECTED
         basket.invoice.save()
+        self.assertEffectsOfInvalidBasketOnBookRemainingCount()
 
-        # basket is NOT valid any more, so remaining is back to init
+    def test_book_remaining_when_created_basket(self):
+        self.createAndGetBascket()
+        self.assertEffectOfBasketCreationOnBookRemainingCount()
+
+    def assertEffectsOfInvalidBasketOnBookRemainingCount(self):
+        # assert effect on book count remaining
+        # all books remaining is back to init state
         self.assertEqual(self.b1.remaining, 3)
         self.assertEqual(self.b2.remaining, 2)
 
     def test_basket_create(self):
-        # set some delivery fee
-        config = Config.get_instance()
-        config.delivery_fee = 1000
-        config.save()
+        response = self.client.post(self.basket_create_endpoint, data=self.get_the_sample_basket_data(), format='json')
+        actual_total_amount = self.b1.final_price + self.b2.final_price * 2
 
-        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
+        self.assertBasketDataCorrectness(actual_total_amount, response)
+        self.assertEffectOfBasketCreationOnBookRemainingCount()
 
-        api_response = json.loads(response.content)
-        total_amount = self.b1.final_price + self.b2.final_price * 2
-        basket = Basket.objects.get(pk=api_response.get('pk'))
+    def assertEffectsOfValidBasketOnBookRemainingCount(self):
+        self.assertEffectOfBasketCreationOnBookRemainingCount()
 
-        # assert basket data sanity
-        self.assertEqual(response.status_code, 201)
-        self.assertGreaterEqual(api_response.get('subtotal'), total_amount)
-        self.assertEqual(api_response.get('invoice').get('amount'), total_amount)
-        self.assertEqual(api_response.get('invoice').get('delivery_fee'), config.delivery_fee)
-        self.assertEqual(api_response.get('invoice').get('total_payable_amount'), total_amount + config.delivery_fee)
-
+    def assertEffectOfBasketCreationOnBookRemainingCount(self):
         # assert effect on book count remaining
         self.assertEqual(self.b1.remaining, 2)
         self.assertEqual(self.b2.remaining, 0)
 
-        # asset invoice times
-        self.assertEqual(basket.invoice.create_datetime.replace(microsecond=0, second=0),
-                         timezone.now().replace(microsecond=0, second=0))
-        self.assertEqual(basket.invoice.last_try_datetime.replace(microsecond=0, second=0),
-                         timezone.now().replace(microsecond=0, second=0))
+    def assertBasketDataCorrectness(self, actual_total_amount, response):
+        # assert basket data sanity
+        api_response = json.loads(response.content)
+        self.assertEqual(response.status_code, 201)
+        self.assertGreaterEqual(api_response.get('subtotal'), actual_total_amount)
+        self.assertEqual(api_response.get('invoice').get('amount'), actual_total_amount)
+        self.assertEqual(api_response.get('invoice').get('delivery_fee'), self.config.delivery_fee)
+        self.assertEqual(api_response.get('invoice').get('total_payable_amount'),
+                         actual_total_amount + self.config.delivery_fee)
 
     def test_basket_expiration(self):
-        # create the test basket
-        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
-        api_response = json.loads(response.content)
-
-        basket = Basket.objects.get(pk=api_response.get('pk'))
+        basket = self.createAndGetBascket()
 
         # this basket is created write now, so last try datetime
         # is not expired
         self.assertEqual(basket.is_expired, False)
-
-        # change the baskets invoice last try datetime to 20 min ago
-        # basket.invoice.save() should not be called, because
-        # last try date time is auto_now, so it overrides the 20 min ago
-        _20_min_ago = timezone.now() - datetime.timedelta(minutes=PAYMENT_BUFFER_TIME + 5)
-        basket.invoice.last_try_datetime = _20_min_ago
-
+        self.invalidatedBasketBySettingInvoiceLastTryTimeTo20MinsAgo(basket.invoice)
         self.assertEqual(basket.is_expired, True)
 
     def test_basket_validation(self):
-        # create the test basket
-        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
-        api_response = json.loads(response.content)
-
-        basket = Basket.objects.get(pk=api_response.get('pk'))
+        basket = self.createAndGetBascket()
 
         # this basket is created write now, so last try datetime
         # is not expired and it's not paid, so basket is valid
         self.assertEqual(basket.is_valid_for_payment, True)
 
-        # change the baskets invoice last try datetime to 20 min ago
-        _20_min_ago = timezone.now() - datetime.timedelta(minutes=PAYMENT_BUFFER_TIME + 5)
-        basket.invoice.last_try_datetime = _20_min_ago
-        basket.save()
+        self.invalidatedBasketBySettingInvoiceLastTryTimeTo20MinsAgo(basket.invoice)
 
         # basket is expired so it's not valid any more
         self.assertEqual(basket.is_valid_for_payment, False)
@@ -513,112 +486,76 @@ class TestBasket(APITestCase):
 
         self.assertEqual(basket.is_valid_for_payment, True)
 
+    def createAndGetBascket(self):
+        response = self.createTheSampleBasket()
+        api_response = json.loads(response.content)
+        basket = Basket.objects.get(pk=api_response.get('pk'))
+        return basket
+
     def test_valid_basket_payment(self):
-        if True:
-            # create the test basket
-            response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
-            api_response = json.loads(response.content)
+        invoice, payment_response = self.createBasketAndMakePayment()
 
-            # get invoice internal id
-            invoice_internal_id = api_response.get('invoice').get('internal_id')
-            invoice = Invoice.objects.get(internal_id=invoice_internal_id)
+        self.assertEqual(payment_response.status_code, 200)
+        self.assertEqual(invoice.status, Invoice.IN_PAYMENT)
 
-            make_payment_endpoint = reverse('payment_make', kwargs={'internal_id': invoice_internal_id})
+    def test_in_payment_basket_payment(self):
+        invoice, payment_response = self.createBasketAndMakePayment()
 
-            payment_response = self.client.get(make_payment_endpoint)
-
-            self.assertEqual(payment_response.status_code, 200)
-
-            # invoice status should be in payment
-            invoice.refresh_from_db()
-            self.assertEqual(invoice.status, Invoice.IN_PAYMENT)
-
-            # another attempt to pay the same invoice must cause an error
-            payment_response_second_attempt = self.client.get(make_payment_endpoint)
-            self.assertEqual(payment_response_second_attempt.status_code, 400)
+        # another attempt to pay the same invoice must cause an error
+        make_payment_endpoint = reverse('payment_make', kwargs={'internal_id': invoice.internal_id})
+        payment_response_second_attempt = self.client.get(make_payment_endpoint)
+        self.assertEqual(payment_response_second_attempt.status_code, 400)
 
     def test_valid_basket_payment_verification(self):
-        # create the test basket
-        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
-        api_response = json.loads(response.content)
+        invoice, payment_response = self.createBasketAndMakePayment()
+        verify_response = self.attemptToVerifyInvoice(invoice)
+        self.assertEqual(verify_response.status_code, 200)
 
-        # get invoice internal id
-        invoice_internal_id = api_response.get('invoice').get('internal_id')
-        invoice = Invoice.objects.get(internal_id=invoice_internal_id)
+    def test_already_paid_basket_verification(self):
+        invoice, payment_response = self.createBasketAndMakePayment()
 
-        make_payment_endpoint = reverse('payment_make', kwargs={'internal_id': invoice_internal_id})
-
-        payment_response = self.client.get(make_payment_endpoint)
-
-        self.assertEqual(payment_response.status_code, 200)
-
-        # invoice status should be in payment
-        invoice.refresh_from_db()
-        self.assertEqual(invoice.status, Invoice.IN_PAYMENT)
-
-        # attempt to verify the invoice
-        verify_payment_endpoint = reverse('payment_verify', kwargs={'internal_id': invoice.internal_id})
-
-        verify_respnose = self.client.get(verify_payment_endpoint)
-
-        self.assertEqual(verify_respnose.status_code, 200)
-
-    def test_invalid_basket_payment_verification(self):
-        # create the test basket
-        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
-        api_response = json.loads(response.content)
-
-        # get invoice internal id
-        invoice_internal_id = api_response.get('invoice').get('internal_id')
-        invoice = Invoice.objects.get(internal_id=invoice_internal_id)
-
-        make_payment_endpoint = reverse('payment_make', kwargs={'internal_id': invoice_internal_id})
-
-        payment_response = self.client.get(make_payment_endpoint)
-
-        self.assertEqual(payment_response.status_code, 200)
-
-        # invoice status should be in payment
-        invoice.refresh_from_db()
-        self.assertEqual(invoice.status, Invoice.IN_PAYMENT)
-
-        # change invoice status to payed
         # this should make the basket invalid
         invoice.status = Invoice.PAYED
         invoice.save()
 
         verify_response = self.attemptToVerifyInvoice(invoice)
-
         self.assertEqual(verify_response.status_code, 400)
 
-    def test_invalid_basket_payment_verification2(self):
-        # create the test basket
-        response = self.client.post(self.basket_create_endpoint, data=self.basket_create_test_data(), format='json')
+    def test_expired_basket_verification(self):
+        invoice, payment_response = self.createBasketAndMakePayment()
+
+        self.invalidatedBasketBySettingInvoiceLastTryTimeTo20MinsAgo(invoice)
+
+        verify_response = self.attemptToVerifyInvoice(invoice)
+        self.assertEqual(verify_response.status_code, 400)
+
+    def createBasketAndMakePayment(self):
+        response = self.createTheSampleBasket()
         api_response = json.loads(response.content)
+        invoice, payment_response = self.makePaymentOnBasketThroughBasketCreateResponse(api_response)
+        return invoice, payment_response
 
-        # get invoice internal id
-        invoice_internal_id = api_response.get('invoice').get('internal_id')
-        invoice = Invoice.objects.get(internal_id=invoice_internal_id)
-
-        make_payment_endpoint = reverse('payment_make', kwargs={'internal_id': invoice_internal_id})
-
-        payment_response = self.client.get(make_payment_endpoint)
-
-        self.assertEqual(payment_response.status_code, 200)
-
-        # invoice status should be in payment
-        invoice.refresh_from_db()
-        self.assertEqual(invoice.status, Invoice.IN_PAYMENT)
-
+    @staticmethod
+    def invalidatedBasketBySettingInvoiceLastTryTimeTo20MinsAgo(invoice):
         # change invoice time to 20 min ago
         # this should make the basket invalid
         _20_mins_ago = timezone.now() - datetime.timedelta(minutes=PAYMENT_BUFFER_TIME + 5)
         invoice.last_try_datetime = _20_mins_ago
         invoice.save()
 
-        verify_response = self.attemptToVerifyInvoice(invoice)
+    def makePaymentOnBasketThroughBasketCreateResponse(self, api_response):
+        # get invoice internal id
+        invoice_internal_id = api_response.get('invoice').get('internal_id')
+        invoice = Invoice.objects.get(internal_id=invoice_internal_id)
+        make_payment_endpoint = reverse('payment_make', kwargs={'internal_id': invoice_internal_id})
+        payment_response = self.client.get(make_payment_endpoint)
+        invoice.refresh_from_db()
+        return invoice, payment_response
 
-        self.assertEqual(verify_response.status_code, 400)
+    def createTheSampleBasket(self):
+        # create the test basket
+        response = self.client.post(self.basket_create_endpoint, data=self.get_the_sample_basket_data(), format='json')
+        return response
 
     def attemptToVerifyInvoice(self, invoice):
         # attempt to verify the invoice
