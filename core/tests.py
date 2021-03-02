@@ -1,5 +1,7 @@
 import datetime
 import json
+
+import furl
 from django.utils.translation import gettext as _
 
 from rest_framework.test import APITestCase
@@ -33,13 +35,13 @@ class TestBasket(APITestCase):
         b1 = Book(title="Test book 1",
                   description="desc1",
                   publisher=pb1,
-                  price=10000,
+                  price=1000,
                   count=3)
         b1.save()
         b1.authors.add(p1)
         b2 = Book(title="Test Book 2",
                   description="desc3",
-                  price=15000,
+                  price=1200,
                   discount=0.2,
                   count=2)
         b2.save()
@@ -243,7 +245,7 @@ class TestBasket(APITestCase):
 
     def test_valid_basket_payment(self):
         invoice, payment_response = self.createBasketAndMakePayment()
-
+        print(json.loads(payment_response.content))
         self.assertEqual(payment_response.status_code, 200)
         self.assertEqual(invoice.status, Invoice.IN_PAYMENT)
 
@@ -283,11 +285,13 @@ class TestBasket(APITestCase):
         verify_and_redirect_endpoint = reverse('payment_verify_and_redirect',
                                                kwargs={'internal_id': invoice.internal_id})
         response = self.client.get(verify_and_redirect_endpoint)
-        api_response = json.loads(response.content)
-        invoice.refresh_from_db()
+        self.assertEqual(response.status_code, 302)
 
-        InvoiceDetailedSerializer(instance=invoice)
-        self.assertEqual(api_response, InvoiceDetailedSerializer(instance=invoice).data)
+        redirect_to = furl.furl(response.url)
+
+        response_invoice_data = json.loads(redirect_to.args.get('response'))
+        invoice.refresh_from_db()
+        self.assertEqual(response_invoice_data.get('data'), InvoiceDetailedSerializer(instance=invoice).data)
 
     def createBasketAndMakePayment(self):
         response = self.createTheSampleBasket()

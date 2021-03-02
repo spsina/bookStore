@@ -1,3 +1,5 @@
+import json
+
 import furl
 from django.db import transaction
 from django.http import HttpResponseRedirect
@@ -120,8 +122,10 @@ class VerifyPaymentView(APIView):
     def getInvoiceSerializedData(invoice):
         return InvoiceDetailedSerializer(instance=invoice).data
 
-    def get(self, request, *args, **kwargs):
+    @staticmethod
+    def get(request, *args, **kwargs):
         invoice = get_object_or_404(Invoice, internal_id=kwargs.get('internal_id'))
+        self = VerifyPaymentView
 
         if not self.doesHaveValidBasket(invoice):
             return Response(self.getInvoiceSerializedData(invoice), status=400)
@@ -138,15 +142,17 @@ class VerifyPaymentAndRedirectView(APIView):
 
     @staticmethod
     def get(request, *args, **kwargs):
-        verify_payment_view = VerifyPaymentView.as_view()
+        verify_payment_view = VerifyPaymentView.get
         response = verify_payment_view(request, *args, **kwargs)
         url = furl.furl('https://abee.ir/store/invoice/')
-        url.args['response'] = {
-            'status_code': response.status_code,
-            'body': response.body
-        }
 
-        HttpResponseRedirect(redirect_to=url.url)
+        # print(response.data)
+        url.args['response'] = json.dumps({
+            'status_code': response.status_code,
+            'data': response.data
+        })
+
+        return HttpResponseRedirect(redirect_to=url.url)
 
 
 class GetConfigView(generics.RetrieveAPIView):

@@ -35,7 +35,7 @@ urlpatterns = [
     # payment
     path('payment/make/<internal_id>/', MakePaymentView.as_view(), name="payment_make"),
     path('payment/verify/<internal_id>/', VerifyPaymentView.as_view(), name="payment_verify"),
-    path('payment/verify/<internal_id>/', VerifyPaymentAndRedirectView.as_view(), name="payment_verify_and_redirect"),
+    path('payment/verify/<internal_id>/redirect/', VerifyPaymentAndRedirectView.as_view(), name="payment_verify_and_redirect"),
 
 
     # config
