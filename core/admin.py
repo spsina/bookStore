@@ -1,4 +1,6 @@
 from django.contrib import admin
+from django.utils.safestring import mark_safe
+
 from .models import UserProfile, Book, Basket, Person, Invoice, Item, Publisher, Config
 from django.utils.html import format_html
 from django.utils.translation import gettext as _
@@ -25,27 +27,47 @@ class OrderItemInline(admin.TabularInline):
 
 
 class BasketAdmin(admin.ModelAdmin):
-    list_display = ['pk',
-                    'items',
-                    'full_name',
-                    'address', 'phone_number', 'invoice__status',
-                    'subtotal', 'create_datetime', 'status']
+    list_display = [
+        'details',
+        'payment_status', 'pk',
+        'items',
+        'full_name',
+        'address', 'phone_number', 'invoice__status',
+        'subtotal', 'create_datetime', 'status', ]
     list_editable = ['status']
     inlines = [OrderItemInline, ]
     list_filter = ['status', 'invoice__status']
+    list_display_links = ['details', ]
+
+    @staticmethod
+    def details(basket):
+        return "DETAILS"
+
+    @staticmethod
+    def payment_status(basket):
+        if basket.invoice.status == Invoice.PAYED:
+            return mark_safe("<span style='color:green'>PAYED</span>")
+        else:
+            return mark_safe("<span style='color:red'>NOT PAID</span>")
 
     @staticmethod
     def items(instance):
-        td = "<table><tr><th>item</th><th>count</th></tr>"
+        if instance.invoice.status == Invoice.PAYED:
+            td = "<span style='color:green'>"
+        else:
+            td = "<span style='color:red'>"
+
+        td += "<table><tr><th>item</th><th>count</th></tr>"
         for item in instance.items.all():
             td += "<tr><td>" + item.book.title + "</td><td>" + str(item.count) + "</td></tr>"
-        td += "</table>"
+        td += "</table></span>"
+
         return format_html(td)
 
     @staticmethod
     def invoice__status(instance):
         if instance.invoice:
-            return instance.invoice.status
+            return instance.invoice.get_status_display()
         return "-"
 
     @staticmethod
