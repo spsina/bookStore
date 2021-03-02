@@ -117,7 +117,7 @@ class PublisherSerializer(serializers.ModelSerializer):
 class RelatedBookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
-        fields = ['title', 'description',
+        fields = ['pk', 'title', 'description',
                   'price', 'discount', 'isbn', 'final_price',
                   'cover_type', 'page_count',
                   'image', 'count', 'remaining']
