@@ -110,11 +110,23 @@ class PublisherSerializer(serializers.ModelSerializer):
         fields = ['pk', 'name']
 
 
+class RelatedBookSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Book
+        fields = ['title', 'description',
+                  'price', 'discount', 'isbn', 'final_price',
+                  'cover_type', 'page_count',
+                  'image', 'count', 'remaining']
+
+
 class BookSerializer(serializers.ModelSerializer):
     authors = PersonSerializer(many=True, read_only=True)
     editors = PersonSerializer(many=True, read_only=True)
     translators = PersonSerializer(many=True, read_only=True)
     publisher = PublisherSerializer(read_only=True)
+
+    related_books = RelatedBookSerializer(many=True)
+    related_to = RelatedBookSerializer(many=True)
 
     class Meta:
         model = Book
@@ -123,6 +135,7 @@ class BookSerializer(serializers.ModelSerializer):
                   'authors', 'editors', 'translators',
                   'price', 'discount', 'isbn', 'final_price',
                   'cover_type', 'page_count',
+                  'related_books', 'related_to', 'remaining',
                   'image', 'count', 'is_delete', 'sold'
                   ]
 
@@ -214,8 +227,6 @@ class BasketCreate(serializers.ModelSerializer):
 
 
 class ConfigSerializer(serializers.ModelSerializer):
-
     class Meta:
         model = Config
         fields = '__all__'
-

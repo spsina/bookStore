@@ -492,6 +492,32 @@ class UserCProfileTestCase(APITestCase):
         self.assertGreaterEqual(api_response.keys(), new_user_profile_data.keys())
 
 
+class TestBook(APITestCase):
+
+    def setUp(self) -> None:
+        self.b1 = Book.objects.create(title="b1")
+        self.b2 = Book.objects.create(title="b2")
+        self.b3 = Book.objects.create(title="b3")
+
+    def test_add_related_books(self):
+        self.makeRelationsForB1()
+        self.assertEqual(set(self.b1.related_books.all()), {self.b2, self.b3, self.b1})
+
+    def test_serialize_book_with_relations(self):
+        self.makeRelationsForB1()
+        response = self.client.get(reverse('book_detail', kwargs={'book_id': self.b1.pk}))
+
+        self.assertEqual(response.status_code, 200)
+
+    def makeRelationsForB1(self):
+        self.b1.related_books.add(self.b2)
+        self.b1.related_books.add(self.b3)
+        self.b1.related_books.add(self.b1)
+
+    def test_add_self_to_related(self):
+        self.b1.related_books.add(self.b1)
+
+
 class TestConfig(APITestCase):
 
     def setUp(self) -> None:

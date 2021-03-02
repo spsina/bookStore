@@ -193,6 +193,9 @@ class Book(models.Model):
     # instead of deleting book objects, set this flag to True
     is_delete = models.BooleanField(default=False)
 
+    # related books
+    related_books = models.ManyToManyField("Book", related_name="related_to", blank=True)
+
     @staticmethod
     def clear(aggregate_dict):
         """
