@@ -14,7 +14,6 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = UserProfile
         fields = ['pk', 'user',
                   'first_name', 'last_name', 'phone_number',
-
                   'delivery_phone_number',
                   'land_line',
                   'email',
@@ -64,22 +63,27 @@ class SendCodeSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         phone_number = validated_data.get('phone_number')
+        user_profile = self.get_or_create_user_profile(phone_number, validated_data)
+        verification_object = self.send_verification_sms(user_profile)
 
+        return verification_object.get('obj')
+
+    @staticmethod
+    def send_verification_sms(user_profile):
+        # send a verification sms to the given user_profile
+        verification_object = user_profile.get_verification_object()
+        if verification_object.get('status') != 201:
+            raise serializers.ValidationError(verification_object)
+        send_verification_code(user_profile.phone_number, verification_object.get('obj').code)
+        return verification_object
+
+    def get_or_create_user_profile(self, phone_number, validated_data):
         # get or create a user profile
         try:
             user_profile = UserProfile.objects.get(phone_number=phone_number)
         except UserProfile.DoesNotExist:
             user_profile = self.create_user_profile(validated_data)
-
-        # send a verification sms to the given user_profile
-        verification_object = user_profile.get_verification_object()
-
-        if verification_object.get('status') != 201:
-            raise serializers.ValidationError(verification_object)
-
-        send_verification_code(user_profile.phone_number, verification_object.get('obj').code)
-
-        return verification_object.get('obj')
+        return user_profile
 
     @staticmethod
     def create_user_profile(validated_data):
@@ -174,9 +178,25 @@ class BasketCreate(serializers.ModelSerializer):
 
     @staticmethod
     def validate_items(items):
+        errors = BasketCreate.get_items_errors_if_any(items)
+        # raise any errors
+        if errors:
+            raise serializers.ValidationError(errors)
+
+        return items
+
+    @staticmethod
+    def get_items_errors_if_any(items):
+        errors, subtotal = BasketCreate.validate_item_enough_remaining_and_get_subtotal(items)
+        # check for min order amount
+        if subtotal < 1000:
+            errors.append(_("Min order amount is 1000 Toman"))
+        return errors
+
+    @staticmethod
+    def validate_item_enough_remaining_and_get_subtotal(items):
         subtotal = 0
         errors = []
-
         for item in items:
             subtotal += item.get('book').final_price * item.get('count')
 
@@ -185,45 +205,62 @@ class BasketCreate(serializers.ModelSerializer):
                 book = item.get('book')
                 errors.append(_("Book %d - %s underflow" % (book.pk, book.title)))
 
-        # check for min order amount
-        if subtotal < 1000:
-            errors.append(_("Min order amount is 1000 Toman"))
-
-        # raise any errors
-        if errors:
-            raise serializers.ValidationError(errors)
-
-        return items
+        return errors, subtotal
 
     def create(self, validated_data):
-        # create basket
 
         with transaction.atomic():
-            config = Config.get_instance()
-            invoice = Invoice.objects.create(amount=1000, delivery_fee=config.delivery_fee)
-            items = validated_data.pop('items')
-            basket = Basket.objects.create(**validated_data, invoice=invoice)
+            basket = self.create_basket_and_put_items_in_the_basket(validated_data)
 
-            # create items
-            for item in items:
+        return basket
 
-                # lock the book
-                _book = item.get('book')
-                _count = item.get('count')
-                book = Book.objects.select_for_update().get(pk=_book.pk)
+    def create_basket_and_put_items_in_the_basket(self, validated_data):
+        items = validated_data.pop('items')
+        basket, invoice = self.create_basket(validated_data)
+        self.create_items_in_the_basket(basket, items)
+        self.update_invoice_subtotal(basket, invoice)
+        return basket
 
-                # check for enough remaining
-                if book.remaining >= _count:
-                    item_serializer = ItemSerializer(data={'book': _book.pk, 'count': _count})
-                    item_serializer.is_valid(raise_exception=True)
-                    item_serializer.save(basket=basket)
-                else:
-                    raise serializers.ValidationError(_("Book %d - %s underflow" % (book.pk, book.title)))
-
+    @staticmethod
+    def update_invoice_subtotal(basket, invoice):
         invoice.amount = basket.subtotal
         invoice.save()
 
-        return basket
+    def create_items_in_the_basket(self, basket, items):
+        # create items
+        for item in items:
+            book = self.lock_the_book(item)
+            self.create_item_if_has_enough_remaining(basket, book, item)
+
+    def create_item_if_has_enough_remaining(self, basket, book, item):
+        # check for enough remaining
+        if book.remaining >= item.get('count'):
+            self.create_item_in_the_basket(book, item.get('count'), basket)
+        else:
+            raise serializers.ValidationError(_("Book %d - %s underflow" % (book.pk, book.title)))
+
+    @staticmethod
+    def create_item_in_the_basket(_book, _count, basket):
+        item_serializer = ItemSerializer(data={'book': _book.pk, 'count': _count})
+        item_serializer.is_valid(raise_exception=True)
+        item_serializer.save(basket=basket)
+
+    @staticmethod
+    def lock_the_book(item):
+        # lock the book
+        _book = item.get('book')
+        _count = item.get('count')
+        book = Book.objects.select_for_update().get(pk=_book.pk)
+        return book
+
+    @staticmethod
+    def create_basket(validated_data):
+        config = Config.get_instance()
+
+        # invoice amount will be updated after items put into basket
+        invoice = Invoice.objects.create(amount=1000, delivery_fee=config.delivery_fee)
+        basket = Basket.objects.create(**validated_data, invoice=invoice)
+        return basket, invoice
 
 
 class ConfigSerializer(serializers.ModelSerializer):
