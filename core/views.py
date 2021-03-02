@@ -40,13 +40,13 @@ class GetUserInfoView(generics.GenericAPIView):
             return Response({'phone_number': _("Phone number not found")}, status=400)
 
         if not self.is_code_correct(serializer, vo):
-            return self.update_code_usage_attempt_and_report_remaining_query_times(vo)
+            return self.handle_wrong_code_and_return_response(vo)
 
         self.use_the_code(vo)
         return Response(UserProfileSerializer(instance=user_profile).data)
 
-    def update_code_usage_attempt_and_report_remaining_query_times(self, vo):
-        remaining_query_times = self.handle_wrong_code(vo)
+    def handle_wrong_code_and_return_response(self, vo):
+        remaining_query_times = self.handle_wrong_code_and_get_remaining_query_times(vo)
         return Response({'code': _("Incorrect Code"), 'remaining_query_times': remaining_query_times}, status=400)
 
     @staticmethod
@@ -64,14 +64,18 @@ class GetUserInfoView(generics.GenericAPIView):
         return vo
 
     @staticmethod
-    def handle_wrong_code(vo):
+    def handle_wrong_code_and_get_remaining_query_times(vo):
         # todo: anti concurrency
         vo.query_times += 1
-        if vo.query_times == UserProfilePhoneVerification.MAX_QUERY:
-            vo.burnt = True
+        GetUserInfoView.burn_the_vo_if_maxed_out(vo)
         vo.save()
         remaining_query_times = UserProfilePhoneVerification.MAX_QUERY - vo.query_times
         return remaining_query_times
+
+    @staticmethod
+    def burn_the_vo_if_maxed_out(vo):
+        if vo.query_times == UserProfilePhoneVerification.MAX_QUERY:
+            vo.burnt = True
 
     def get_user_profile(self, request):
         serializer = self.serializer_class(data=request.data)
