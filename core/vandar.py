@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils import timezone
 
 from BookStore.secret import VANDAR_API_KEY
+from BookStore.settings import DEBUG
 from core.models import Invoice
 
 
@@ -24,11 +25,12 @@ def vandar_prepare_for_payment(invoice, request):
     # generate callback url
 
     callback = request.build_absolute_uri(
-        reverse("payment_verify",
+        reverse("payment_verify_and_redirect",
                 kwargs={'internal_id': invoice.internal_id})
     )
 
-    callback = "https://cafepay.app/"
+    if DEBUG:
+        callback = "https://abee.ir/"
 
     result = requests.post(
         'https://ipg.vandar.io/api/v3/send',
