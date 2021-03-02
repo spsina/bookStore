@@ -135,6 +135,18 @@ class TestBasket(APITestCase):
 
         self.assertEffectsOfValidBasketOnBookRemainingCount()
 
+    def test_book_remaining_when_payed_basket_expired(self):
+        basket = self.createAndGetBasket()
+
+        _30_minutes_ago = timezone.now() - datetime.timedelta(minutes=30)
+
+        # change invoice status to PAYED
+        basket.invoice.status = Invoice.PAYED
+        basket.invoice.last_try_datetime = _30_minutes_ago
+        basket.invoice.save()
+
+        self.assertEffectsOfValidBasketOnBookRemainingCount()
+
     def test_book_remaining_when_in_payment_basket(self):
         basket = self.createAndGetBasket()
 
