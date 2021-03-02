@@ -1,7 +1,6 @@
 import json
 
 import furl
-from django.db import transaction
 from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from rest_framework import generics
@@ -34,28 +33,51 @@ class GetUserInfoView(generics.GenericAPIView):
     serializer_class = GetUserInfoSerializer
 
     def post(self, request, *args, **kwargs):
-        serializer = self.serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        serializer, user_profile = self.get_user_profile(request)
+        vo = self.get_verification_object(user_profile)
 
-        user_profile = get_object_or_404(UserProfile, phone_number=serializer.validated_data.get('phone_number'))
-        vo = UserProfilePhoneVerification.objects.last_not_expired_verification_object(user_profile=user_profile)
-
-        if not vo:
+        if not vo or not vo.is_usable:
             return Response({'phone_number': _("Phone number not found")}, status=400)
 
-        if vo.is_usable:
-            if vo.code == serializer.validated_data.get('code'):
-                vo.used = True
-                vo.save()
-                return Response(UserProfileSerializer(instance=user_profile).data)
+        if not self.is_code_correct(serializer, vo):
+            return self.update_code_usage_attempt_and_report_remaining_query_times(vo)
 
-            # todo: anti concurrency
-            vo.query_times += 1
-            if vo.query_times == UserProfilePhoneVerification.MAX_QUERY:
-                vo.burnt = True
-            vo.save()
-            remaining_query_times = UserProfilePhoneVerification.MAX_QUERY - vo.query_times
-            return Response({'code': _("Incorrect Code"), 'remaining_query_times': remaining_query_times}, status=400)
+        self.use_the_code(vo)
+        return Response(UserProfileSerializer(instance=user_profile).data)
+
+    def update_code_usage_attempt_and_report_remaining_query_times(self, vo):
+        remaining_query_times = self.handle_wrong_code(vo)
+        return Response({'code': _("Incorrect Code"), 'remaining_query_times': remaining_query_times}, status=400)
+
+    @staticmethod
+    def use_the_code(vo):
+        vo.used = True
+        vo.save()
+
+    @staticmethod
+    def is_code_correct(serializer, vo):
+        return vo.code == serializer.validated_data.get('code')
+
+    @staticmethod
+    def get_verification_object(user_profile):
+        vo = UserProfilePhoneVerification.objects.last_not_expired_verification_object(user_profile=user_profile)
+        return vo
+
+    @staticmethod
+    def handle_wrong_code(vo):
+        # todo: anti concurrency
+        vo.query_times += 1
+        if vo.query_times == UserProfilePhoneVerification.MAX_QUERY:
+            vo.burnt = True
+        vo.save()
+        remaining_query_times = UserProfilePhoneVerification.MAX_QUERY - vo.query_times
+        return remaining_query_times
+
+    def get_user_profile(self, request):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user_profile = get_object_or_404(UserProfile, phone_number=serializer.validated_data.get('phone_number'))
+        return serializer, user_profile
 
 
 class BookRetrieveView(generics.RetrieveAPIView):
