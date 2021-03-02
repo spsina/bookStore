@@ -39,6 +39,11 @@ class BasketAdmin(admin.ModelAdmin):
     list_filter = ['status', 'invoice__status']
     list_display_links = ['details', ]
 
+    search_fields = ['pk', 'items__book__title',
+                     'user_profile__first_name',
+                     'user_profile__phone_number',
+                     'user_profile__last_name']
+
     @staticmethod
     def details(basket):
         return "DETAILS"
