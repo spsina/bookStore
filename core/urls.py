@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import BookRetrieveView, BookListView, \
     BasketCreateView, MakePaymentView, UserProfileSendCode, GetUserInfoView, UserProfileRUView, VerifyPaymentView, \
-    GetConfigView
+    GetConfigView, VerifyPaymentAndRedirectView
 
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
@@ -35,6 +35,7 @@ urlpatterns = [
     # payment
     path('payment/make/<internal_id>/', MakePaymentView.as_view(), name="payment_make"),
     path('payment/verify/<internal_id>/', VerifyPaymentView.as_view(), name="payment_verify"),
+    path('payment/verify/<internal_id>/', VerifyPaymentAndRedirectView.as_view(), name="payment_verify_and_redirect"),
 
 
     # config

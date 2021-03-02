@@ -6,6 +6,8 @@ from rest_framework.test import APITestCase
 from .models import *
 from django.urls import reverse
 
+from .serializers import InvoiceDetailedSerializer
+
 
 class TestBasket(APITestCase):
 
@@ -275,6 +277,17 @@ class TestBasket(APITestCase):
 
         verify_response = self.attemptToVerifyInvoice(invoice)
         self.assertEqual(verify_response.status_code, 400)
+
+    def test_verify_payment_and_redirect(self):
+        invoice, payment_response = self.createBasketAndMakePayment()
+        verify_and_redirect_endpoint = reverse('payment_verify_and_redirect',
+                                               kwargs={'internal_id': invoice.internal_id})
+        response = self.client.get(verify_and_redirect_endpoint)
+        api_response = json.loads(response.content)
+        invoice.refresh_from_db()
+
+        InvoiceDetailedSerializer(instance=invoice)
+        self.assertEqual(api_response, InvoiceDetailedSerializer(instance=invoice).data)
 
     def createBasketAndMakePayment(self):
         response = self.createTheSampleBasket()

@@ -1,4 +1,6 @@
+import furl
 from django.db import transaction
+from django.http import HttpResponseRedirect
 from django.shortcuts import render, get_object_or_404
 from rest_framework import generics
 from rest_framework.response import Response
@@ -132,8 +134,22 @@ class VerifyPaymentView(APIView):
         return Response(self.getInvoiceSerializedData(invoice), status=200)
 
 
-class GetConfigView(generics.RetrieveAPIView):
+class VerifyPaymentAndRedirectView(APIView):
 
+    @staticmethod
+    def get(request, *args, **kwargs):
+        verify_payment_view = VerifyPaymentView.as_view()
+        response = verify_payment_view(request, *args, **kwargs)
+        url = furl.furl('https://abee.ir/store/invoice/')
+        url.args['response'] = {
+            'status_code': response.status_code,
+            'body': response.body
+        }
+
+        HttpResponseRedirect(redirect_to=url.url)
+
+
+class GetConfigView(generics.RetrieveAPIView):
     serializer_class = ConfigSerializer
 
     def get_object(self):
