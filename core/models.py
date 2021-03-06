@@ -322,6 +322,8 @@ class Basket(models.Model):
     description = models.TextField(blank=True, null=True)
     is_gift = models.BooleanField(default=False)
 
+    no_delivery_fee = models.BooleanField(default=False)
+
     @property
     def subtotal(self):
         return sum([item.subtotal for item in self.items.all()])

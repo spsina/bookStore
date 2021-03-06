@@ -173,7 +173,7 @@ class BasketCreate(serializers.ModelSerializer):
 
     class Meta:
         model = Basket
-        fields = ['pk', 'items', 'invoice', 'subtotal', 'is_gift', 'description']
+        fields = ['pk', 'items', 'invoice', 'subtotal', 'is_gift', 'description', 'no_delivery_fee']
         extra_kwargs = {'invoice': {'read_only': True}}
 
     @staticmethod
@@ -258,9 +258,18 @@ class BasketCreate(serializers.ModelSerializer):
         config = Config.get_instance()
 
         # invoice amount will be updated after items put into basket
-        invoice = Invoice.objects.create(amount=1000, delivery_fee=config.delivery_fee)
+        delivery_fee = BasketCreate.get_delivery_fee(config, validated_data)
+        invoice = Invoice.objects.create(amount=1000, delivery_fee=delivery_fee)
         basket = Basket.objects.create(**validated_data, invoice=invoice)
         return basket, invoice
+
+    @staticmethod
+    def get_delivery_fee(config, validated_data):
+        if validated_data.get('no_delivery_fee', False):
+            delivery_fee = 0
+        else:
+            delivery_fee = config.delivery_fee
+        return delivery_fee
 
 
 class ConfigSerializer(serializers.ModelSerializer):

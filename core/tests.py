@@ -103,11 +103,12 @@ class TestBasket(APITestCase):
         self.assertEqual(response_3.status_code, 400)
         self.assertEqual(api_response_3, true_response)
 
-    def get_the_sample_basket_data(self):
+    def get_the_sample_basket_data(self, no_delivery_fee=False):
         """
         Sample basket create book data
         """
         return {
+            'no_delivery_fee': no_delivery_fee,
             'items': [
                 {
                     'book': self.b1.pk,
@@ -179,6 +180,17 @@ class TestBasket(APITestCase):
 
         self.assertBasketDataCorrectness(actual_total_amount, response)
         self.assertEffectOfBasketCreationOnBookRemainingCount()
+
+    def test_no_delivery_fee_basket(self):
+        response = self.client.post(self.basket_create_endpoint,
+                                    data=self.get_the_sample_basket_data(no_delivery_fee=True),
+                                    format='json')
+
+        actual_total_amount = self.b1.final_price + self.b2.final_price * 2
+        self.assertEqual(response.status_code, 201)
+        api_response = json.loads(response.content)
+        self.assertEqual(api_response.get('invoice').get('total_payable_amount'), actual_total_amount)
+        self.assertEqual(api_response.get('invoice').get('delivery_fee'), 0)
 
     def assertEffectsOfValidBasketOnBookRemainingCount(self):
         self.assertEffectOfBasketCreationOnBookRemainingCount()
