@@ -172,7 +172,7 @@ class Book(models.Model):
                                   blank=True, null=True)
 
     # people
-    authors = models.ManyToManyField(Person, related_name='authored_books')
+    authors = models.ManyToManyField(Person, blank=True, related_name='authored_books')
     editors = models.ManyToManyField(Person, blank=True, related_name="edited_books")
     translators = models.ManyToManyField(Person, blank=True, related_name="translated_books")
 
