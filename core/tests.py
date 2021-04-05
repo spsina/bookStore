@@ -28,25 +28,46 @@ class TestBasket(APITestCase):
         config.save()
         self.config = config
 
+    @staticmethod
+    def get_book_1_data():
+        pb1 = Publisher.objects.create(name="abee")
+
+        return {
+            'title': "Test book 1",
+            'description': "desc1",
+            'edition': 'ed1',
+            'publish_date': '1300',
+            'publisher': pb1,
+            'price': 1000,
+            'discount': 0,
+            'isbn': 'test_isbn',
+            'cover_type': 'cover_type',
+            'cover_format': 'cover_format',
+            'page_count': 120,
+            'count': 3
+        }
+
+    @staticmethod
+    def get_book_2_data():
+        return {
+            'title': "Test Book 2",
+            'description': "desc3",
+            'price': 1200,
+            'discount': 0.2,
+            'count': 2
+        }
+
     def createBookB1AndB2(self):
         p1 = Person.objects.create(first_name="sina")
         p2 = Person.objects.create(first_name="ali")
-        pb1 = Publisher.objects.create(name="abee")
-        b1 = Book(title="Test book 1",
-                  description="desc1",
-                  publisher=pb1,
-                  price=1000,
-                  count=3)
-        b1.save()
+
+        b1 = Book.objects.create(**self.get_book_1_data())
         b1.authors.add(p1)
-        b2 = Book(title="Test Book 2",
-                  description="desc3",
-                  price=1200,
-                  discount=0.2,
-                  count=2)
-        b2.save()
+
+        b2 = Book.objects.create(**self.get_book_2_data())
         b2.authors.add(p2)
         b2.translators.add(p1)
+
         self.b1 = b1
         self.b2 = b2
 
@@ -73,6 +94,14 @@ class TestBasket(APITestCase):
         }, format='json')
 
         return response
+
+    def test_book_1_data(self):
+        endpoint = reverse('book_detail', kwargs={'book_id': self.b1.pk})
+        book_1_data_request = self.client.get(endpoint)
+
+        self.assertEqual(book_1_data_request.status_code, 200)
+        response = json.loads(book_1_data_request.content)
+        self.assertGreaterEqual(response.keys(), self.get_book_1_data().keys())
 
     def test_basket_with_enough_book_remaining_1(self):
         response = self.createBasketWithB1AndB2Count(1, 2)
@@ -269,7 +298,6 @@ class TestBasket(APITestCase):
 
     def test_valid_basket_payment(self):
         invoice, payment_response = self.createBasketAndMakePayment()
-        print(json.loads(payment_response.content))
         self.assertEqual(payment_response.status_code, 200)
         self.assertEqual(invoice.status, Invoice.IN_PAYMENT)
 

@@ -120,6 +120,7 @@ class RelatedBookSerializer(serializers.ModelSerializer):
         fields = ['pk', 'title', 'description',
                   'price', 'discount', 'isbn', 'final_price',
                   'cover_type', 'page_count',
+                  'cover_format', 'publish_date',
                   'image', 'count', 'remaining']
 
 
@@ -139,6 +140,7 @@ class BookSerializer(serializers.ModelSerializer):
                   'authors', 'editors', 'translators',
                   'price', 'discount', 'isbn', 'final_price',
                   'cover_type', 'page_count',
+                  'cover_format', 'publish_date',
                   'related_books', 'related_to', 'remaining',
                   'image', 'count', 'is_delete', 'sold'
                   ]

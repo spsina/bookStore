@@ -168,6 +168,7 @@ class Book(models.Model):
     title = models.CharField(max_length=1024)
     description = models.TextField(blank=True, null=True)
     edition = models.CharField(max_length=120, blank=True, null=True)
+    publish_date = models.CharField(max_length=120, blank=True, null=True)
     publisher = models.ForeignKey(Publisher, related_name="books", on_delete=models.SET_NULL,
                                   blank=True, null=True)
 
@@ -184,7 +185,10 @@ class Book(models.Model):
 
     # header image
     image = models.ImageField(blank=True, null=True)
+
+    # other meta data
     cover_type = models.CharField(max_length=120, blank=True, null=True)
+    cover_format = models.CharField(max_length=120, blank=True, null=True)
     page_count = models.IntegerField(default=0, blank=True, null=True)
 
     # number of this books available
