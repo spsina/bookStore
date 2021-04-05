@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.safestring import mark_safe
 
-from .models import UserProfile, Book, Basket, Person, Invoice, Item, Publisher, Config
+from .models import UserProfile, Book, Basket, Person, Invoice, Item, Publisher, Config, UserProfilePhoneVerification
 from django.utils.html import format_html
 from django.utils.translation import gettext as _
 
@@ -128,6 +128,18 @@ class ConfigAdmin(admin.ModelAdmin):
     def edit(instance):
         return _("edit")
 
+
+class UPPVAdmin(admin.ModelAdmin):
+    list_display = ['pk', 'user_profile__phone_number', 'code', 'used', 'burnt']
+
+    list_filter = ['used', 'user_profile__phone_number']
+
+    @staticmethod
+    def user_profile__phone_number(instance):
+        return instance.user_profile.phone_number
+
+
+admin.site.register(UserProfilePhoneVerification, UPPVAdmin)
 
 admin.site.register(UserProfile, UserProfileAdmin)
 admin.site.register(Book, BookAdmin)

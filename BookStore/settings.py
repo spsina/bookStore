@@ -60,6 +60,7 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'BookStore.urls'
 CORS_ALLOWED_ORIGINS = [
     "https://abee.ir",
+    "https://t.abee.ir",
     "https://api.abee.ir",
 ]
 
