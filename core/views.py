@@ -3,7 +3,7 @@ import json
 import furl
 from django.http import HttpResponseRedirect
 from django.shortcuts import get_object_or_404
-from rest_framework import generics
+from rest_framework import generics, filters
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -94,6 +94,9 @@ class BookRetrieveView(generics.RetrieveAPIView):
 class BookListView(generics.ListAPIView):
     serializer_class = BookSerializer
     queryset = Book.objects.filter(is_delete=False)
+
+    filter_backends = [filters.OrderingFilter]
+    ordering_fields = ['pk', ]
 
 
 class BasketCreateView(generics.CreateAPIView):

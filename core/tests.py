@@ -103,6 +103,22 @@ class TestBasket(APITestCase):
         response = json.loads(book_1_data_request.content)
         self.assertGreaterEqual(response.keys(), self.get_book_1_data().keys())
 
+    def test_book_list_order(self):
+        endpoint = reverse('books_list')
+        books_list_request_1_response, books_list_request_1_reverse_response = self.list_books_ordering_pk_and_reverse_pk(
+            endpoint)
+
+        self.assertListEqual(books_list_request_1_response, books_list_request_1_reverse_response[::-1])
+
+    def list_books_ordering_pk_and_reverse_pk(self, endpoint):
+        books_list_request_1 = self.client.get('%s?ordering=pk' % endpoint)
+        books_list_request_1_reverse = self.client.get('%s?ordering=-pk' % endpoint)
+        books_list_request_1_response = json.loads(books_list_request_1.content)
+        books_list_request_1_reverse_response = json.loads(books_list_request_1_reverse.content)
+        self.assertEqual(books_list_request_1.status_code, 200)
+        self.assertEqual(books_list_request_1_reverse.status_code, 200)
+        return books_list_request_1_response, books_list_request_1_reverse_response
+
     def test_basket_with_enough_book_remaining_1(self):
         response = self.createBasketWithB1AndB2Count(1, 2)
         self.assertEqual(response.status_code, 201)
